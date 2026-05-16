@@ -1,89 +1,237 @@
 # AQCS — Autonomous Quant Crypto System
 
-An institutional-grade quantitative research laboratory for crypto spot markets.
+A modular, reproducible quantitative research laboratory for crypto spot markets.
 
-## What this is
+---
 
-AQCS is a modular, reproducible foundation for systematic research on crypto spot markets. It is not a trading bot. It does not make trading decisions. It does not execute orders.
+## Purpose
 
-Phase 1 (current) establishes the infrastructure layer: data acquisition, storage conventions, structured logging, configuration management, and the event schema that all subsequent modules will use.
+AQCS is an infrastructure project. Its objective is to provide a rigorous, well-tested foundation on which systematic quantitative research on crypto spot markets can be conducted. Every design decision prioritises correctness and reproducibility over speed of delivery or sophistication of output.
 
-## What this is not
+The system is built around a strict separation of concerns: deterministic quantitative logic on one side, observational tooling on the other. These two layers never cross.
 
-- A trading bot
-- An autonomous agent with market access
-- A black-box ML system
-- A get-rich-quick tool
+---
 
-## Architecture overview
+## What this project is not
+
+This list is not a disclaimer. It is a constraint that shapes every architectural decision.
+
+- **Not a trading bot.** No component issues orders in Phase 1. No order submission pathway exists.
+- **Not an autonomous agent.** No component makes discretionary decisions without explicit human review.
+- **Not a black-box system.** Every transformation, signal, and configuration value is auditable and reproducible.
+- **Not an ML platform.** Phase 1 contains no model training, inference, or probabilistic forecasting.
+- **Not a production trading system.** This is a research laboratory. Paper trading and live execution belong to later phases, gated behind explicit architectural reviews.
+
+---
+
+## Philosophy: robustness over sophistication
+
+The quantitative finance industry has a long history of systems that were clever in design and fragile in practice. AQCS takes the opposite approach.
+
+> A system that reproduces yesterday's results exactly is more valuable than one that produces slightly better results unpredictably.
+
+Concrete implications:
+
+- All data transformations are deterministic. Given the same input, the output is identical across machines and time.
+- Configuration is centralised and version-controlled. No runtime magic, no environment-specific surprises.
+- Dependencies are pinned. Reproducibility is a first-class requirement, not an afterthought.
+- Failures are loud. Silent data corruption is worse than a hard crash.
+- The Quant Core has no awareness of the LLM layer. The flow of information is one-directional: quant components emit events; the oversight layer reads them.
+
+---
+
+## Architecture
 
 ```
-src/
-├── data/          — Market data acquisition (OHLCV, order book, etc.)
-├── features/      — Feature engineering (deterministic transforms)
-├── signals/       — Signal generation (rules-based, statistical)
-├── portfolio/     — Portfolio construction
-├── risk/          — Risk management and position sizing
-├── execution/     — Order management (read-only in Phase 1)
-├── backtesting/   — Historical simulation engine
-├── monitoring/    — System health and data quality
-├── utils/         — Config, logging, events
-└── llm_oversight/ — LLM observation layer (never a decision-maker)
+┌──────────────────────────────────────────────────────────────┐
+│                        Quant Core                            │
+│                                                              │
+│   Data ──► Features ──► Signals ──► Portfolio ──► Risk      │
+│     │                                                 │      │
+│   (Parquet)                                     Execution   │
+│                                                 (read-only  │
+│                                                  Phase 1)   │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                        Event stream
+                    (OversightEvent, read-only)
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     LLM Oversight Layer                      │
+│                                                              │
+│   Observes events. Writes narrative logs. Takes no actions.  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-See `docs/architecture/architecture.md` for the full design.
+### Source packages
 
-## Quick start
+| Package | Responsibility |
+|---------|---------------|
+| `src/data/` | Market data acquisition. Downloads, validates, and persists OHLCV and other market data. No transformation logic. |
+| `src/features/` | Deterministic feature engineering applied to raw data frames. Pure functions only. |
+| `src/signals/` | Rules-based and statistical signal generation. Output is a scalar or series in {−1, 0, +1} or a probability. |
+| `src/portfolio/` | Combines signals into target weight vectors, subject to constraints. |
+| `src/risk/` | Position sizing, drawdown limits, concentration limits. All thresholds are configuration-driven. |
+| `src/execution/` | Order management interface. Read-only in Phase 1. Dry-run logging only. |
+| `src/backtesting/` | Historical simulation. No look-ahead bias by construction. |
+| `src/monitoring/` | Data quality probes and system health checks. |
+| `src/utils/` | Configuration loader, structured logging, typed event schema. |
+| `src/llm_oversight/` | Read-only observer. Receives `OversightEvent` records. Never modifies state. |
 
-### Prerequisites
+Full component specifications: [`docs/architecture/architecture.md`](docs/architecture/architecture.md).
 
-- Python 3.11+
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+---
+
+## Quant Core
+
+The Quant Core comprises all modules except `llm_oversight`. It operates under the following invariants:
+
+1. **Determinism.** All functions are pure or explicitly stateful with auditable state. Random processes receive an explicit seed.
+2. **No runtime configuration mutation.** Configuration is loaded once at startup. No component may alter it during execution.
+3. **No external API calls from signal logic.** Data is fetched by `src/data/`. Signal and feature modules operate on local files only.
+4. **Typed contracts.** All inter-module data is exchanged via typed Pydantic models or typed Pandas DataFrames with declared schemas.
+5. **Explicit failures.** Schema violations, missing data, and unexpected values raise exceptions. No silent fallbacks.
+
+---
+
+## LLM Oversight
+
+The LLM Oversight layer is a passive observer. Its role is documentation and auditability, not decision-making.
+
+**It is permitted to:**
+- Receive `OversightEvent` records emitted by Quant Core components.
+- Write narrative observations to `docs/bitacora/`.
+- Summarise what happened, in human-readable form.
+- Flag anomalies in logs for human review.
+
+**It is prohibited from:**
+- Modifying any system state.
+- Calling any exchange API.
+- Generating trading signals or weight adjustments.
+- Running autonomously without a human review checkpoint.
+
+The boundary is enforced architecturally: `src/llm_oversight` has read access to the event bus and write access only to `docs/bitacora/`. It imports from `src/utils` only.
+
+---
+
+## Roadmap
+
+### Phase 1 — Foundation Layer (current)
+
+Infrastructure. Data acquisition. Storage conventions. Logging. Configuration. Event schema. Unit tests. No trading logic.
+
+- [x] Repository structure and tooling
+- [x] Centralised YAML configuration with environment overrides
+- [x] Structured JSON logging (`structlog`)
+- [x] Typed, immutable event schema (Pydantic v2)
+- [x] OHLCV downloader: Binance Spot → Parquet (ccxt, paginated, CLI)
+- [x] LLM Oversight observer skeleton
+- [x] Unit test suite (pytest, mocked network)
+
+### Phase 2 — Research Layer
+
+Deterministic feature pipeline. Vectorised backtesting. Data quality monitoring.
+
+- [ ] Feature engineering pipeline (moving averages, volatility, momentum)
+- [ ] Vectorised backtesting engine with transaction cost model
+- [ ] Data quality checks (gap detection, stale price detection, outlier flagging)
+- [ ] Performance metrics (Sharpe, Calmar, max drawdown, turnover)
+- [ ] CI/CD pipeline (GitHub Actions)
+
+### Phase 3 — Signal Layer
+
+Rules-based signal generation. Portfolio construction. Risk management.
+
+- [ ] Signal framework (entry/exit rules, combiners)
+- [ ] Long-only portfolio construction (equal weight, volatility parity)
+- [ ] Risk constraints (position limits, drawdown stops, concentration limits)
+- [ ] Paper trading integration (read-only exchange connection)
+
+### Phase 4 — Execution Layer
+
+Live execution infrastructure, conditional on Phase 3 audit.
+
+- [ ] Order management system (OMS)
+- [ ] Execution algorithm library (TWAP, VWAP)
+- [ ] Real-time data feed integration
+- [ ] Live risk monitoring
+
+> **Phases 3 and 4 require an explicit architecture review before implementation begins.**
+
+---
+
+## Setup
+
+### Requirements
+
+- Python 3.11 or later
+- [`uv`](https://github.com/astral-sh/uv) (recommended) or `pip`
+- Binance account with a **read-only** API key (optional; public endpoints work without credentials)
 
 ### Install
 
 ```bash
-# Clone
 git clone <repo-url>
 cd aqcs
 
-# Create virtual environment and install
+# With uv (recommended)
 uv venv .venv --python 3.11
 source .venv/bin/activate
 uv pip install -e ".[dev]"
 
-# Or with pip
-python -m venv .venv
+# With pip
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Copy env template
+# Configure environment
 cp .env.example .env
-# Edit .env — add Binance read-only API keys if you want private endpoints
+# Edit .env — credentials are optional for public data
 ```
 
-### Run the tests
+### Verify the installation
 
 ```bash
 pytest
 ```
 
+All 17 unit tests should pass. No network access is required.
+
+---
+
+## Basic usage
+
 ### Download OHLCV data
 
 ```bash
-# Daily BTC/USDT from 2023-01-01 to today
+# Daily candles, BTC/USDT, from 2023-01-01 to today
 python -m src.data.ohlcv --symbol BTC/USDT --start 2023-01-01
 
-# 4-hour ETH/USDT, custom range
-python -m src.data.ohlcv --symbol ETH/USDT --timeframe 4h --start 2024-01-01 --end 2024-06-01
+# 4-hour candles, custom date range
+python -m src.data.ohlcv --symbol ETH/USDT --timeframe 4h \
+    --start 2024-01-01 --end 2024-06-01
 
-# Multiple symbols via shell loop
+# Batch download
 for sym in BTC/USDT ETH/USDT SOL/USDT; do
-  python -m src.data.ohlcv --symbol "$sym" --start 2023-01-01
+    python -m src.data.ohlcv --symbol "$sym" --start 2023-01-01
 done
+
+# Shell convenience wrapper
+AQCS_SYMBOLS="BTC/USDT ETH/USDT SOL/USDT" ./scripts/download_ohlcv.sh
 ```
 
-Data is saved to `data/raw/<SYMBOL>_<TIMEFRAME>.parquet`.
+Output is written to `data/raw/<SYMBOL>_<TIMEFRAME>.parquet`.
+
+### Read downloaded data
+
+```python
+import pandas as pd
+
+df = pd.read_parquet("data/raw/BTC_USDT_1d.parquet")
+print(df.dtypes)
+print(df.head())
+```
 
 ### Docker
 
@@ -91,41 +239,128 @@ Data is saved to `data/raw/<SYMBOL>_<TIMEFRAME>.parquet`.
 docker compose up
 ```
 
+The container runs the test suite by default. Override the command to run other scripts.
+
+---
+
 ## Configuration
 
-All configuration lives in `configs/base.yaml`. Environment-specific overrides go in `configs/<env>.yaml`. Secret values (API keys) are loaded from `.env` via `python-dotenv` — never hardcoded.
+Configuration is hierarchical:
 
-The active environment is controlled by the `AQCS_ENV` variable (default: `development`).
+```
+configs/base.yaml           — project-wide defaults (version-controlled)
+configs/<AQCS_ENV>.yaml     — environment override (version-controlled)
+.env                        — secrets: API keys (never committed)
+```
 
-## Design principles
+The active environment is set via `AQCS_ENV` (default: `development`). Secret values are accessed exclusively through `src/utils/config.Settings`; no `os.environ` calls appear in business logic.
 
-| Principle | Implementation |
-|-----------|---------------|
-| Reproducibility | Parquet storage, pinned deps, deterministic transforms |
-| Simplicity | Single config file, no frameworks beyond the stack |
-| Modularity | Each `src/` subdirectory is independent |
-| No hidden state | Structured JSON logs for everything |
-| No LLM trading | `llm_oversight` is read-only by design |
+Feature flags in `base.yaml` enforce the Phase 1 constraints at the configuration level:
 
-## Project structure
+```yaml
+features:
+  live_data: false
+  order_execution: false
+  autonomous_trading: false
+```
+
+These flags are checked at startup. Enabling them in production requires a deliberate configuration change and a corresponding log entry.
+
+---
+
+## Conventions
+
+### Code
+
+| Concern | Tool | Configuration |
+|---------|------|---------------|
+| Formatting | `black` | line-length 100 |
+| Linting | `ruff` | target py311, strict |
+| Type checking | `mypy` | `--strict` |
+| Testing | `pytest` | `tests/` directory |
+
+Run before committing:
+
+```bash
+black src/ tests/
+ruff check src/ tests/ --fix
+mypy src/
+pytest
+```
+
+### Data
+
+- Raw data is immutable. Transformations produce new files in `data/processed/`.
+- All timestamps are UTC. Naive datetimes are not permitted.
+- All Parquet files are written with a declared PyArrow schema. Schema drift raises an error at write time.
+- File naming: `<SYMBOL>_<TIMEFRAME>.parquet`, where `/` in symbol names is replaced with `_`.
+
+### Logging
+
+- `structlog` exclusively. No `print()`.
+- Every log call leads with a named event string: `logger.info("ohlcv_fetched", symbol=..., rows=...)`.
+- `DEBUG` — internal state. `INFO` — significant milestones. `WARNING` — degraded behaviour. `ERROR` — requires human attention.
+
+### Git
+
+- Branch naming: `feat/`, `fix/`, `exp/`, `docs/`
+- Commit messages: imperative, present tense ("Add OHLCV downloader")
+- Non-trivial design decisions are documented as ADRs in `docs/decisions/`
+
+---
+
+## Critical constraints
+
+The following constraints apply to all phases. They are not relaxed without an explicit architecture decision record.
+
+1. **No secrets in version control.** API keys, passphrases, and credentials live exclusively in `.env`.
+2. **No order submission in Phase 1.** The execution module is read-only. Any code path that would submit an order is a defect.
+3. **No LLM-generated trading signals.** The LLM Oversight layer does not produce signals, weights, or any input to the Quant Core.
+4. **No mutable global state.** Configuration is loaded once. Modules communicate through function arguments and return values.
+5. **API keys are read-only.** Binance API keys used in AQCS must be provisioned with market data permissions only. Withdrawal and trading permissions must be disabled at the exchange level.
+6. **All downloaded data passes schema validation before being written to disk.**
+
+---
+
+## Project layout
 
 ```
 aqcs/
-├── configs/           — YAML configuration files
-├── data/              — Local data store (gitignored)
-├── docs/              — Architecture, standards, decisions, research
-├── experiments/       — Ad-hoc notebooks and scripts
-├── logs/              — Structured JSON logs (gitignored)
-├── notebooks/         — Curated analysis notebooks
-├── requirements/      — Pinned dependency files
-├── scripts/           — Utility shell/Python scripts
-├── src/               — Source packages
-└── tests/             — pytest test suite
+├── configs/                  — YAML configuration
+├── data/
+│   ├── raw/                  — Verbatim from exchange (gitignored)
+│   ├── processed/            — Transformed data (gitignored)
+│   └── external/             — Third-party datasets (gitignored)
+├── docs/
+│   ├── architecture/         — System design documents
+│   ├── bitacora/             — Chronological project log
+│   ├── decisions/            — Architecture Decision Records (ADRs)
+│   ├── research/             — Research notes and references
+│   └── standards/            — Engineering standards
+├── experiments/              — Disposable exploratory scripts
+├── logs/                     — Structured JSON logs (gitignored)
+├── notebooks/                — Curated analysis notebooks
+├── requirements/
+│   ├── base.txt              — Runtime dependencies (pinned)
+│   └── dev.txt               — Development dependencies (pinned)
+├── scripts/                  — Utility scripts
+├── src/
+│   ├── data/                 — Data acquisition
+│   ├── features/             — Feature engineering
+│   ├── signals/              — Signal generation
+│   ├── portfolio/            — Portfolio construction
+│   ├── risk/                 — Risk management
+│   ├── execution/            — Order management (read-only, Phase 1)
+│   ├── backtesting/          — Simulation engine
+│   ├── monitoring/           — Data quality and system health
+│   ├── utils/                — Config, logging, events
+│   └── llm_oversight/        — LLM observer (read-only)
+└── tests/
+    ├── unit/                 — Mocked, no network
+    └── integration/          — Requires live credentials
 ```
 
-## Contributing
-
-See `docs/standards/standards.md`.
+---
 
 ## License
 
