@@ -1,0 +1,11 @@
+pandas>=2.2
+numpy>=1.26
+ccxt>=4.3
+pyarrow>=15.0
+pydantic>=2.7
+pydantic-settings>=2.3
+python-dotenv>=1.0
+PyYAML>=6.0
+rich>=13.7
+structlog>=24.1
+click>=8.1

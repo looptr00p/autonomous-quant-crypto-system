@@ -1,0 +1,28 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────
+#  AQCS — Minimalist Docker Compose
+#  Phase 1: Foundation Layer (no live trading)
+# ─────────────────────────────────────────────
+
+services:
+  aqcs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aqcs:dev
+    container_name: aqcs_dev
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./configs:/app/configs
+    working_dir: /app
+    command: ["python", "-m", "pytest", "tests/", "-v"]
+    networks:
+      - aqcs_net
+
+networks:
+  aqcs_net:
+    driver: bridge

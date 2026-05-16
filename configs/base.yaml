@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────
+#  AQCS Base Configuration
+#  All environment-specific overrides go in
+#  configs/development.yaml, staging.yaml, etc.
+# ─────────────────────────────────────────────
+
+project:
+  name: "aqcs"
+  version: "0.1.0"
+  phase: "foundation"
+
+data:
+  root: "./data"
+  raw_dir: "./data/raw"
+  processed_dir: "./data/processed"
+  external_dir: "./data/external"
+  default_format: "parquet"
+
+logging:
+  level: "INFO"
+  format: "json"
+  output_dir: "./logs"
+  rotation: "daily"
+  retention_days: 30
+
+exchange:
+  default: "binanceusdm"
+  sandbox: true
+  rate_limit_enabled: true
+  timeout_ms: 30000
+
+ohlcv:
+  default_timeframe: "1d"
+  default_symbols:
+    - "BTC/USDT"
+    - "ETH/USDT"
+    - "SOL/USDT"
+    - "BNB/USDT"
+    - "XRP/USDT"
+  max_candles_per_request: 1000
+  pagination_sleep_ms: 500
+
+storage:
+  parquet:
+    compression: "snappy"
+    row_group_size: 50000
+
+features:
+  live_data: false
+  order_execution: false
+  autonomous_trading: false
