@@ -146,7 +146,7 @@ There is no shortcut to this process. The value of the constraint system is that
 The enforcement is additive — calling `assert_allowed` is cheap, and the cost of not calling it is a capability that silently activates when `CURRENT_PHASE` advances.
 
 ```python
-from src.utils.phase_guard import Feature, assert_allowed
+from aqcs.utils.phase_guard import Feature, assert_allowed
 
 def connect_websocket(symbol: str) -> None:
     assert_allowed(Feature.WEBSOCKET_STREAMING)
