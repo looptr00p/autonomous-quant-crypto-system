@@ -89,13 +89,29 @@ Writes use tmp-then-rename (atomic on POSIX systems) to prevent partial files.
 | `config_path` | str | Path to config file used |
 | `dataset_fingerprint` | str | SHA-256 of sorted file fingerprints |
 | `dataset_paths` | list[str] | Input data file paths |
-| `parameters` | dict[str, Any] | Experiment parameters |
-| `metrics` | dict[str, float] | Output metrics (Sharpe, max_dd, etc.) |
+| `parameters` | dict[str, Any] | Experiment parameters — **must be JSON-serializable** |
+| `metrics` | dict[str, bool \| int \| float \| str \| None] | Output metrics — **JSON scalars only** |
 | `tags` | list[str] | Searchable labels |
 | `notes` | str | Human-readable context |
 | `artifacts` | list[str] | Output file paths |
 
 All timestamps are UTC. Naive datetimes are rejected at construction time.
+
+### JSON-serializability constraints
+
+**parameters** must be fully JSON-serializable. Python objects (`datetime`, `Path`, `lambda`, custom classes) are rejected at construction time with a `ValueError`. Use strings for paths, ISO strings for datetimes.
+
+**metrics** must contain JSON scalar values only: `bool`, `int`, `float`, `str`, or `None`. Nested dicts, lists, and Python objects are rejected. Use separate `artifacts` paths for complex output structures.
+
+```python
+# Accepted
+parameters={"lookback_days": 90, "threshold": 0.02, "name": "v1"}
+metrics={"sharpe": 1.4, "converged": True, "best_symbol": "BTC/USDT"}
+
+# Rejected
+parameters={"fn": lambda x: x}          # lambda not serializable
+metrics={"equity_curve": [1.0, 1.1]}     # list not a scalar
+```
 
 ---
 
@@ -125,13 +141,55 @@ This is intentionally cheap:
 
 A change in the underlying data that preserves file size and mtime (rare in practice for downloaded market data) would produce the same fingerprint. This is an accepted limitation for Phase 1.
 
+### Portable fingerprints with `dataset_root`
+
+By default, fingerprints use the absolute resolved path of each file. This means the same dataset in different directories (e.g., `/home/user/aqcs/data/` vs `/workspace/data/`) produces different fingerprints.
+
+To make fingerprints portable, pass `dataset_root`:
+
+```python
+fingerprint_dataset(
+    [Path("data/raw/BTC_USDT_1d.parquet")],
+    dataset_root=Path("data/raw"),
+)
+```
+
+With `dataset_root`, the path used in the fingerprint is `BTC_USDT_1d.parquet` (relative), not the absolute path. This allows the same dataset in different base directories to produce matching fingerprints, enabling cross-machine reproducibility checks.
+
+`ExperimentTracker.create_experiment()` accepts `dataset_root` for this purpose.
+
 ---
 
 ## Git metadata
 
 Git hash capture uses `subprocess.run(["git", "rev-parse", "HEAD"])` with no `shell=True` (no injection risk). If git is unavailable, the function returns an empty string and the experiment continues normally.
 
+Pass `repo_root` to run the git command from a specific directory:
+
+```python
+tracker.create_experiment(
+    "my_experiment",
+    repo_root=Path("/path/to/aqcs"),  # explicit git working directory
+)
+```
+
 **Reproducibility requirement from `project-standards.md §4`:** Before running any experiment intended for the record, verify `git status` shows a clean working tree. An experiment run on modified uncommitted code has a valid git hash but the hash does not capture those modifications.
+
+---
+
+## Deterministic JSON storage
+
+Experiment records are serialised with `sort_keys=True`. This ensures repeated saves of the same record produce bit-identical JSON, which simplifies diffing and makes checksums of experiment files stable.
+
+```
+# Every save of the same record produces this field order:
+{
+  "artifacts": [...],
+  "config_path": "...",
+  "dataset_fingerprint": "...",
+  ...  ← alphabetical order
+}
+```
 
 ---
 

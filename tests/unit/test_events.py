@@ -242,11 +242,10 @@ class TestExperimentEvents:
         started = ExperimentStartedEvent(
             component="aqcs.backtesting",
             experiment_name="btc_momentum_v1",
+            experiment_type="signal_research",
             git_commit="abc1234",
-            symbols=["BTC/USDT"],
-            timeframe="1d",
-            start_date="2023-01-01",
-            end_date="2023-12-31",
+            dataset_fingerprint="deadbeef",
+            dataset_paths=["data/raw/BTC_USDT_1d.parquet"],
         )
         completed = ExperimentCompletedEvent(
             component="aqcs.backtesting",

@@ -444,3 +444,184 @@ class TestLocalStorage:
         loaded = load_experiment_json(files[0])
         assert loaded.status == ExperimentStatus.COMPLETED
         assert loaded.metrics["sharpe"] == 1.5
+
+    def test_saved_json_has_sorted_keys(self, tmp_path: Path) -> None:
+        rec = _make_record(parameters={"z_param": 1, "a_param": 2})
+        path = save_experiment_json(rec, tmp_path)
+        content = path.read_text(encoding="utf-8")
+        data = json.loads(content)
+        top_keys = list(data.keys())
+        assert top_keys == sorted(top_keys), "Top-level JSON keys must be sorted"
+
+    def test_repeated_saves_produce_identical_json(self, tmp_path: Path) -> None:
+        rec = _make_record(experiment_name="deterministic", parameters={"b": 2, "a": 1})
+        path1 = save_experiment_json(rec, tmp_path)
+        content1 = path1.read_text(encoding="utf-8")
+        path2 = save_experiment_json(rec, tmp_path)
+        content2 = path2.read_text(encoding="utf-8")
+        assert content1 == content2
+
+
+# ── JSON serializability enforcement ─────────────────────────────────────────
+
+class TestJSONSerializability:
+    def test_dict_parameters_accepted(self) -> None:
+        rec = _make_record(parameters={"lookback": 90, "threshold": 0.02, "name": "v1"})
+        assert rec.parameters["lookback"] == 90
+
+    def test_nested_dict_parameters_accepted(self) -> None:
+        rec = _make_record(parameters={"nested": {"key": "value"}, "count": 3})
+        assert rec.parameters["nested"]["key"] == "value"
+
+    def test_non_serializable_parameters_rejected(self) -> None:
+        with pytest.raises(Exception, match="JSON-serializable"):
+            _make_record(parameters={"obj": object()})
+
+    def test_lambda_in_parameters_rejected(self) -> None:
+        with pytest.raises(Exception):
+            _make_record(parameters={"fn": lambda x: x})
+
+    def test_float_metric_accepted(self) -> None:
+        rec = _make_record()
+        rec.metrics["sharpe"] = 1.4
+        assert rec.metrics["sharpe"] == 1.4
+
+    def test_int_metric_accepted(self) -> None:
+        rec = _make_record(metrics={"n_trades": 42})
+        assert rec.metrics["n_trades"] == 42
+
+    def test_bool_metric_accepted(self) -> None:
+        rec = _make_record(metrics={"converged": True})
+        assert rec.metrics["converged"] is True
+
+    def test_str_metric_accepted(self) -> None:
+        rec = _make_record(metrics={"best_symbol": "BTC/USDT"})
+        assert rec.metrics["best_symbol"] == "BTC/USDT"
+
+    def test_none_metric_accepted(self) -> None:
+        rec = _make_record(metrics={"optional_stat": None})
+        assert rec.metrics["optional_stat"] is None
+
+    def test_list_metric_rejected(self) -> None:
+        with pytest.raises(Exception, match="JSON scalar"):
+            _make_record(metrics={"equity_curve": [1.0, 1.1, 1.2]})
+
+    def test_dict_metric_rejected(self) -> None:
+        with pytest.raises(Exception, match="JSON scalar"):
+            _make_record(metrics={"nested": {"a": 1}})
+
+    def test_object_metric_rejected(self) -> None:
+        with pytest.raises(Exception, match="JSON scalar"):
+            _make_record(metrics={"obj": object()})
+
+
+# ── Portable fingerprinting with dataset_root ─────────────────────────────────
+
+class TestPortableFingerprinting:
+    def test_fingerprint_with_dataset_root(self, tmp_path: Path) -> None:
+        root = tmp_path / "data"
+        root.mkdir()
+        f = root / "BTC_USDT_1d.parquet"
+        f.write_bytes(b"parquet data")
+        fp = fingerprint_file(f, dataset_root=root)
+        assert isinstance(fp, str)
+        assert len(fp) == 64
+
+    def test_fingerprint_relative_path_differs_from_absolute(self, tmp_path: Path) -> None:
+        root = tmp_path / "data"
+        root.mkdir()
+        f = root / "BTC_USDT_1d.parquet"
+        f.write_bytes(b"parquet data")
+        fp_abs = fingerprint_file(f)
+        fp_rel = fingerprint_file(f, dataset_root=root)
+        assert fp_abs != fp_rel  # different path strings → different fingerprints
+
+    def test_fingerprint_dataset_portable_is_deterministic(self, tmp_path: Path) -> None:
+        root = tmp_path / "data"
+        root.mkdir()
+        f1 = root / "a.parquet"
+        f2 = root / "b.parquet"
+        f1.write_bytes(b"file a")
+        f2.write_bytes(b"file b")
+        fp1 = fingerprint_dataset([f1, f2], dataset_root=root)
+        fp2 = fingerprint_dataset([f1, f2], dataset_root=root)
+        assert fp1 == fp2
+
+    def test_fingerprint_dataset_portable_order_independent(self, tmp_path: Path) -> None:
+        root = tmp_path / "data"
+        root.mkdir()
+        f1 = root / "x.parquet"
+        f2 = root / "y.parquet"
+        f1.write_bytes(b"file x")
+        f2.write_bytes(b"file y")
+        assert (
+            fingerprint_dataset([f1, f2], dataset_root=root)
+            == fingerprint_dataset([f2, f1], dataset_root=root)
+        )
+
+    def test_missing_file_with_dataset_root_returns_empty(self) -> None:
+        root = Path("/some/root")
+        fp = fingerprint_file(Path("/some/root/missing.parquet"), dataset_root=root)
+        assert fp == ""
+
+
+# ── repo_root in git hash capture ─────────────────────────────────────────────
+
+class TestGitHashWithRepoRoot:
+    def test_repo_root_passed_as_cwd(self, tmp_path: Path) -> None:
+        with patch("aqcs.experiments.fingerprint.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = "abc1234\n"
+            get_git_commit_hash(repo_root=tmp_path)
+            call_kwargs = mock_run.call_args[1]
+            assert call_kwargs.get("cwd") == tmp_path
+
+    def test_no_repo_root_does_not_pass_cwd(self) -> None:
+        with patch("aqcs.experiments.fingerprint.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = "abc1234\n"
+            get_git_commit_hash()
+            call_kwargs = mock_run.call_args[1]
+            assert "cwd" not in call_kwargs
+
+    def test_repo_root_graceful_fallback(self, tmp_path: Path) -> None:
+        with patch("aqcs.experiments.fingerprint.subprocess.run") as mock_run:
+            mock_run.side_effect = FileNotFoundError("git not found")
+            result = get_git_commit_hash(repo_root=tmp_path)
+        assert result == ""
+
+
+# ── Generic ExperimentStartedEvent ───────────────────────────────────────────
+
+class TestGenericExperimentEvent:
+    def test_started_event_has_no_trading_fields(self, tmp_path: Path) -> None:
+        from aqcs.utils.events import ExperimentStartedEvent
+        ev = ExperimentStartedEvent(
+            component="aqcs.experiments.tracker",
+            experiment_name="test",
+            experiment_type="research",
+            git_commit="abc123",
+            dataset_fingerprint="deadbeef",
+            dataset_paths=["data/raw/BTC_USDT_1d.parquet"],
+        )
+        assert not hasattr(ev, "symbols")
+        assert not hasattr(ev, "timeframe")
+        assert not hasattr(ev, "start_date")
+        assert not hasattr(ev, "end_date")
+        assert ev.experiment_type == "research"
+        assert ev.dataset_fingerprint == "deadbeef"
+
+    def test_started_event_emitted_with_generic_fields(self, tmp_path: Path) -> None:
+        from aqcs.utils.events import ExperimentStartedEvent
+        bus = EventBus()
+        events: list = []
+        bus.subscribe(events.append)
+        tracker = ExperimentTracker(tmp_path, bus=bus)
+        tracker.create_experiment(
+            "generic_test",
+            experiment_type="data_quality",
+            dataset_paths=["data/raw/BTC_USDT_1d.parquet"],
+        )
+        started = next(e for e in events if isinstance(e, ExperimentStartedEvent))
+        assert started.experiment_type == "data_quality"
+        assert "data/raw/BTC_USDT_1d.parquet" in started.dataset_paths

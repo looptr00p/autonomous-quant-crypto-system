@@ -234,11 +234,10 @@ class ExperimentStartedEvent(BaseEvent):
     event_category: EventCategory = EventCategory.EXPERIMENT
     event_name: EventName = EventName.EXPERIMENT_STARTED
     experiment_name: str
-    git_commit: str
-    symbols: list[str]
-    timeframe: str
-    start_date: str
-    end_date: str
+    experiment_type: str = "research"
+    git_commit: str = ""
+    dataset_fingerprint: str = ""
+    dataset_paths: list[str] = Field(default_factory=list)
 
 
 class ExperimentCompletedEvent(BaseEvent):

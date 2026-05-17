@@ -63,16 +63,24 @@ class ExperimentTracker:
         parameters: dict[str, Any] | None = None,
         config_path: str = "",
         dataset_paths: list[str] | None = None,
+        dataset_root: Path | None = None,
         tags: list[str] | None = None,
         notes: str = "",
         capture_git: bool = True,
+        repo_root: Path | None = None,
         fingerprint_data: bool = True,
     ) -> ExperimentRecord:
-        """Create a new experiment record in RUNNING state, save it, and emit a start event."""
+        """Create a new experiment record in RUNNING state, save it, and emit a start event.
+
+        Args:
+            dataset_root: If provided, dataset fingerprints use paths relative
+                          to this root for portability across machines.
+            repo_root: Working directory for git hash capture. Defaults to cwd.
+        """
         paths = dataset_paths or []
-        git_hash = get_git_commit_hash() if capture_git else ""
+        git_hash = get_git_commit_hash(repo_root=repo_root) if capture_git else ""
         ds_fingerprint = (
-            fingerprint_dataset([Path(p) for p in paths])
+            fingerprint_dataset([Path(p) for p in paths], dataset_root=dataset_root)
             if fingerprint_data and paths
             else ""
         )
@@ -103,11 +111,10 @@ class ExperimentTracker:
             self._bus.publish(ExperimentStartedEvent(
                 component=self._component,
                 experiment_name=record.experiment_name,
+                experiment_type=record.experiment_type,
                 git_commit=record.git_commit_hash,
-                symbols=record.dataset_paths,
-                timeframe="",
-                start_date=record.timestamp_started_utc.date().isoformat(),
-                end_date="",
+                dataset_fingerprint=record.dataset_fingerprint,
+                dataset_paths=record.dataset_paths,
             ))
 
         return record

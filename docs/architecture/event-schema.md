@@ -241,6 +241,25 @@ These constraints are enforced by `tests/architecture/test_dependency_boundaries
 }
 ```
 
+### `experiment.started`
+
+```json
+{
+  "event_category": "experiment",
+  "event_name": "experiment.started",
+  "severity": "info",
+  "component": "aqcs.experiments.tracker",
+  "experiment_name": "btc_momentum_baseline_v1",
+  "experiment_type": "signal_research",
+  "git_commit": "abc1234def5678abc1234def5678abc1234def56",
+  "dataset_fingerprint": "e3b0c44298fc1c149afbf4c8996fb924...",
+  "dataset_paths": ["data/raw/BTC_USDT_1d.parquet"]
+}
+```
+
+Note: `ExperimentStartedEvent` uses generic experiment metadata, not trading-specific
+fields. For backtesting experiments, `dataset_paths` contains the data file list.
+
 ### `experiment.failed`
 
 ```json
@@ -248,7 +267,7 @@ These constraints are enforced by `tests/architecture/test_dependency_boundaries
   "event_category": "experiment",
   "event_name": "experiment.failed",
   "severity": "error",
-  "component": "aqcs.backtesting",
+  "component": "aqcs.experiments.tracker",
   "experiment_name": "btc_momentum_v1",
   "reason": "Data gap: 3 missing bars at 2024-01-15",
   "duration_seconds": 3.2

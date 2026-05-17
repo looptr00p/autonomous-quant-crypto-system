@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import platform as _platform
 import sys
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Union
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
 _UTC_NAMES: frozenset[str] = frozenset({"UTC", "UTC+00:00", "UTC-00:00", "+00:00"})
+
+# Allowed metric value types: JSON scalars only.
+# bool must be listed before int — in Python, bool is a subclass of int.
+MetricValue = Union[bool, int, float, str, None]
 
 
 def _require_utc(v: datetime) -> datetime:
@@ -38,12 +43,12 @@ class ExperimentStatus(str, Enum):
 class ExperimentRecord(BaseModel):
     """Complete metadata record for a single experiment run.
 
-    Designed for reproducibility and auditability — every field is
-    JSON-serializable and captures enough context to reconstruct a run.
-
-    Timestamps are always UTC. The record is mutable during the run
-    (status transitions from RUNNING to COMPLETED/FAILED); identity
+    All fields are JSON-serializable. Timestamps are always UTC.
+    The record is mutable during the run (status transitions); identity
     fields (experiment_id, name, started_utc, git_commit_hash) never change.
+
+    parameters: Must be JSON-serializable. Rejected at construction time if not.
+    metrics: JSON scalars only (bool, int, float, str, None). No nested objects.
     """
 
     # ── Identity ──────────────────────────────────────────────────────────────
@@ -69,7 +74,7 @@ class ExperimentRecord(BaseModel):
 
     # ── Research metadata ─────────────────────────────────────────────────────
     parameters: dict[str, Any] = Field(default_factory=dict)
-    metrics: dict[str, float] = Field(default_factory=dict)
+    metrics: dict[str, MetricValue] = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
     notes: str = ""
     artifacts: list[str] = Field(default_factory=list)
@@ -88,4 +93,31 @@ class ExperimentRecord(BaseModel):
     def validate_completed_utc(cls, v: Any) -> Any:
         if isinstance(v, datetime):
             return _require_utc(v)
+        return v
+
+    @field_validator("parameters", mode="after")
+    @classmethod
+    def validate_parameters_json_serializable(cls, v: dict[str, Any]) -> dict[str, Any]:
+        try:
+            json.dumps(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"parameters must be JSON-serializable. "
+                f"Remove Python objects that cannot be converted to JSON. Error: {exc}"
+            ) from exc
+        return v
+
+    @field_validator("metrics", mode="before")
+    @classmethod
+    def validate_metrics_scalar_values(cls, v: Any) -> Any:
+        if not isinstance(v, dict):
+            return v
+        for key, value in v.items():
+            if not isinstance(value, (bool, int, float, str, type(None))):
+                raise ValueError(
+                    f"metrics['{key}'] must be a JSON scalar "
+                    f"(bool, int, float, str, or None). "
+                    f"Got '{type(value).__name__}'. "
+                    f"Nested objects are not allowed in metrics."
+                )
         return v

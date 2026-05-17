@@ -34,7 +34,7 @@ def save_experiment_json(record: ExperimentRecord, storage_dir: Path) -> Path:
     tmp = dest.with_suffix(".tmp.json")
 
     data = record.model_dump(mode="json")
-    content = json.dumps(data, indent=2, ensure_ascii=False, default=str)
+    content = json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True, default=str)
     tmp.write_text(content, encoding="utf-8")
     tmp.rename(dest)
 
