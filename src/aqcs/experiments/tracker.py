@@ -50,7 +50,7 @@ class ExperimentTracker:
         bus: EventBus | None = None,
         component: str = "aqcs.experiments.tracker",
     ) -> None:
-        self._storage_dir = storage_dir
+        self._storage_dir = Path(storage_dir)
         self._bus = bus
         self._component = component
         self._records: dict[UUID, ExperimentRecord] = {}
