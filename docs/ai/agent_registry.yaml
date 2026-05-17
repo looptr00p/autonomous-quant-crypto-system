@@ -1,0 +1,198 @@
+# AQCS Agent Registry
+# Version: 1.0.0
+# Date: 2026-05-17
+#
+# This registry is documentation only. It is not loaded at runtime.
+# No dynamic agent discovery. No executable agent orchestration.
+# Human Founder has final authority over all role assignments.
+
+agents:
+
+  - agent_id: human-founder
+    name: Human Founder
+    role: final_authority
+    allowed_actions:
+      - approve_or_reject_any_decision
+      - advance_current_phase
+      - enable_feature_flags
+      - merge_to_main
+      - define_objectives
+      - add_or_remove_agents
+    forbidden_actions: []
+    canonical_docs_to_read:
+      - AGENTS.md
+    requires_human_approval_for: []
+
+  - agent_id: strategic-quant-committee
+    name: Strategic Quant Committee
+    role: research_direction
+    allowed_actions:
+      - define_research_objectives
+      - approve_experiment_designs
+      - review_backtesting_results
+      - set_risk_parameters_for_config
+    forbidden_actions:
+      - direct_code_modification
+      - phase_advancement_without_founder_approval
+    canonical_docs_to_read:
+      - AGENTS.md
+      - docs/ai/AQCS_CONTEXT.md
+      - docs/architecture/system-architecture-v1.md
+    requires_human_approval_for:
+      - scope_expanding_decisions
+      - new_objectives
+
+  - agent_id: strategic-auditor
+    name: Strategic Auditor
+    role: audit_and_critique
+    allowed_actions:
+      - read_all_code_and_docs
+      - produce_audit_reports
+      - submit_handoff_documents
+      - recommend_adrs
+    forbidden_actions:
+      - modify_code
+      - modify_documentation
+      - approve_implementations
+    canonical_docs_to_read:
+      - AGENTS.md
+      - docs/ai/AQCS_CONTEXT.md
+      - docs/ai/TASK_PROTOCOL.md
+      - docs/architecture/system-architecture-v1.md
+      - docs/standards/project-standards.md
+    requires_human_approval_for:
+      - all_audit_finding_actions_belong_to_human_founder
+
+  - agent_id: claude-code
+    name: Claude Code
+    role: implementation
+    allowed_actions:
+      - implement_approved_tasks
+      - write_and_run_tests
+      - create_and_update_non_governance_docs
+      - create_commits_and_push
+      - run_ruff_black_mypy_pytest
+      - create_adr_drafts
+      - update_bitacora
+    forbidden_actions:
+      - expand_scope_beyond_approved_objective
+      - modify_current_phase_without_approval
+      - enable_blocked_feature_flags
+      - introduce_new_runtime_dependencies_without_approval
+      - merge_to_main_without_ci_and_human_approval
+      - modify_governance_docs_without_founder_instruction
+      - submit_live_orders
+      - deploy_to_production
+      - orchestrate_other_agents
+    canonical_docs_to_read:
+      - AGENTS.md
+      - docs/ai/AQCS_CONTEXT.md
+      - docs/ai/AGENT_ROLES.md
+      - docs/architecture/system-architecture-v1.md
+      - docs/standards/project-standards.md
+      - docs/standards/phase-constraints.md
+    requires_human_approval_for:
+      - scope_expansion
+      - phase_changes
+      - new_runtime_dependencies
+      - main_branch_merges
+      - any_execution_pathway
+
+  - agent_id: opencode
+    name: OpenCode
+    role: implementation
+    allowed_actions:
+      - implement_approved_tasks
+      - write_and_run_tests
+      - create_and_update_non_governance_docs
+      - create_commits_and_push
+      - run_ruff_black_mypy_pytest
+      - create_adr_drafts
+      - update_bitacora
+    forbidden_actions:
+      - expand_scope_beyond_approved_objective
+      - modify_current_phase_without_approval
+      - enable_blocked_feature_flags
+      - introduce_new_runtime_dependencies_without_approval
+      - merge_to_main_without_ci_and_human_approval
+      - modify_governance_docs_without_founder_instruction
+      - submit_live_orders
+      - deploy_to_production
+      - orchestrate_other_agents
+    canonical_docs_to_read:
+      - AGENTS.md
+      - docs/ai/AQCS_CONTEXT.md
+      - docs/ai/AGENT_ROLES.md
+      - docs/architecture/system-architecture-v1.md
+      - docs/standards/project-standards.md
+      - docs/standards/phase-constraints.md
+    requires_human_approval_for:
+      - scope_expansion
+      - phase_changes
+      - new_runtime_dependencies
+      - main_branch_merges
+      - any_execution_pathway
+
+  - agent_id: ultraplan
+    name: Ultraplan
+    role: planning_and_audit_support
+    allowed_actions:
+      - produce_implementation_plans
+      - audit_existing_implementations
+      - recommend_task_sequencing
+      - recommend_adrs
+      - produce_go_nogo_verdicts_as_input_to_humans
+    forbidden_actions:
+      - implement_code
+      - issue_final_decisions
+      - expand_project_scope
+      - approve_own_plans
+    canonical_docs_to_read:
+      - AGENTS.md
+      - docs/ai/AQCS_CONTEXT.md
+      - docs/architecture/system-architecture-v1.md
+    requires_human_approval_for:
+      - all_ultraplan_outputs_are_recommendations
+
+  - agent_id: claude-opus
+    name: Claude Opus
+    role: deep_analysis
+    allowed_actions:
+      - read_all_project_docs_and_code
+      - produce_architectural_analysis
+      - draft_adrs
+      - draft_objective_documents
+      - review_ultraplan_outputs
+    forbidden_actions:
+      - implement_code_without_explicit_task_assignment
+      - make_binding_decisions
+      - modify_governance_docs_without_founder_instruction
+    canonical_docs_to_read:
+      - AGENTS.md
+      - docs/ai/AQCS_CONTEXT.md
+      - docs/architecture/system-architecture-v1.md
+      - docs/standards/project-standards.md
+    requires_human_approval_for:
+      - all_claude_opus_outputs_are_recommendations
+
+  - agent_id: llm-oversight
+    name: LLM Oversight
+    role: passive_observer
+    allowed_actions:
+      - subscribe_to_core_event_categories
+      - log_events_via_structlog
+      - generate_oversight_review_events
+      - write_bitacora_narrative_entries
+    forbidden_actions:
+      - modify_quant_core_state
+      - generate_trading_signals_or_weights
+      - submit_orders_or_connect_to_exchange
+      - import_from_aqcs_packages_other_than_utils
+      - run_autonomously_without_human_session
+      - override_architecture_enforcement_tests
+    canonical_docs_to_read:
+      - AGENTS.md
+      - docs/ai/AQCS_CONTEXT.md
+      - docs/architecture/event-schema.md
+    requires_human_approval_for:
+      - any_action_beyond_observation_and_documentation

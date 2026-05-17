@@ -362,6 +362,25 @@ aqcs/
 
 ---
 
+## Governance (for AI agents)
+
+AQCS uses multiple AI systems in collaboration with human oversight. Every AI agent must read the following documents before making changes:
+
+| Document | Purpose |
+|----------|---------|
+| [`AGENTS.md`](AGENTS.md) | Entry point — constraints, forbidden actions, workflow |
+| [`docs/ai/AQCS_CONTEXT.md`](docs/ai/AQCS_CONTEXT.md) | Canonical project context and implemented layers |
+| [`docs/ai/AGENT_ROLES.md`](docs/ai/AGENT_ROLES.md) | Role boundaries and permissions per agent |
+| [`docs/ai/TASK_PROTOCOL.md`](docs/ai/TASK_PROTOCOL.md) | Task format, ID system, workflow |
+| [`docs/ai/HANDOFF_TEMPLATE.md`](docs/ai/HANDOFF_TEMPLATE.md) | Mandatory handoff record format |
+| [`docs/ai/agent_registry.yaml`](docs/ai/agent_registry.yaml) | Static agent registry |
+
+Architecture Decision Records: [`docs/decisions/`](docs/decisions/)  
+Objective tracking: [`docs/objectives/`](docs/objectives/)  
+Project log: [`docs/bitacora/`](docs/bitacora/)
+
+---
+
 ## License
 
 MIT
