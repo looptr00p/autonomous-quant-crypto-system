@@ -28,37 +28,43 @@ _SRC_FILES = sorted((_PROJECT_ROOT / "src" / "aqcs").rglob("*.py"))
 # These are ccxt and generic exchange API methods for order submission.
 # Any call to these in src/aqcs/ is a critical governance violation.
 
-_ORDER_SUBMISSION_METHODS: frozenset[str] = frozenset({
-    "create_order",
-    "place_order",
-    "submit_order",
-    "create_limit_order",
-    "create_market_order",
-    "create_stop_order",
-    "create_stop_limit_order",
-    "create_stop_market_order",
-    "create_take_profit_order",
-    "edit_order",
-    "cancel_order",
-    "cancel_all_orders",
-    "cancel_orders",
-    "close_position",
-    "close_all_positions",
-})
+_ORDER_SUBMISSION_METHODS: frozenset[str] = frozenset(
+    {
+        "create_order",
+        "place_order",
+        "submit_order",
+        "create_limit_order",
+        "create_market_order",
+        "create_stop_order",
+        "create_stop_limit_order",
+        "create_stop_market_order",
+        "create_take_profit_order",
+        "edit_order",
+        "cancel_order",
+        "cancel_all_orders",
+        "cancel_orders",
+        "close_position",
+        "close_all_positions",
+    }
+)
 
-_LEVERAGE_METHODS: frozenset[str] = frozenset({
-    "set_leverage",
-    "set_margin_mode",
-    "set_position_mode",
-    "add_margin",
-    "reduce_margin",
-})
+_LEVERAGE_METHODS: frozenset[str] = frozenset(
+    {
+        "set_leverage",
+        "set_margin_mode",
+        "set_position_mode",
+        "add_margin",
+        "reduce_margin",
+    }
+)
 
-_FUTURES_METHODS: frozenset[str] = frozenset({
-    "fetch_funding_rate",
-    "fetch_open_interest",
-    "set_sandbox_mode",  # allowed in aqcs.data only (covered separately)
-})
+_FUTURES_METHODS: frozenset[str] = frozenset(
+    {
+        "fetch_funding_rate",
+        "fetch_open_interest",
+        "set_sandbox_mode",  # allowed in aqcs.data only (covered separately)
+    }
+)
 
 _ALL_FORBIDDEN: frozenset[str] = _ORDER_SUBMISSION_METHODS | _LEVERAGE_METHODS
 
@@ -78,6 +84,7 @@ def _find_attribute_calls(path: Path, forbidden: frozenset[str]) -> list[str]:
 
 # ── 1. No order submission method calls ───────────────────────────────────────
 
+
 def test_no_order_submission_calls_in_src() -> None:
     violations: list[str] = []
     for src_file in _SRC_FILES:
@@ -93,6 +100,7 @@ def test_no_order_submission_calls_in_src() -> None:
 
 # ── 2. No leverage/margin API calls ───────────────────────────────────────────
 
+
 def test_no_leverage_or_margin_calls_in_src() -> None:
     violations: list[str] = []
     for src_file in _SRC_FILES:
@@ -106,6 +114,7 @@ def test_no_leverage_or_margin_calls_in_src() -> None:
 
 
 # ── 3. Feature flags in base.yaml ─────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def base_config() -> dict:
@@ -121,15 +130,15 @@ def test_order_execution_flag_is_false(base_config: dict) -> None:
 
 
 def test_live_data_flag_is_false(base_config: dict) -> None:
-    assert base_config["features"]["live_data"] is False, (
-        "configs/base.yaml: features.live_data must be false in Phase 1."
-    )
+    assert (
+        base_config["features"]["live_data"] is False
+    ), "configs/base.yaml: features.live_data must be false in Phase 1."
 
 
 def test_autonomous_trading_flag_is_false(base_config: dict) -> None:
-    assert base_config["features"]["autonomous_trading"] is False, (
-        "configs/base.yaml: features.autonomous_trading must be false in Phase 1."
-    )
+    assert (
+        base_config["features"]["autonomous_trading"] is False
+    ), "configs/base.yaml: features.autonomous_trading must be false in Phase 1."
 
 
 def test_exchange_market_type_is_spot(base_config: dict) -> None:
@@ -142,31 +151,37 @@ def test_exchange_market_type_is_spot(base_config: dict) -> None:
 # ── 4. Phase Guard blocks order_execution and live_trading ────────────────────
 # These test the Phase Guard at the feature level, not just the unit tests.
 
+
 def test_phase_guard_blocks_order_execution_at_module_level() -> None:
     from aqcs.utils.phase_guard import Feature, PhaseConstraintError, assert_allowed
+
     with pytest.raises(PhaseConstraintError):
         assert_allowed(Feature.ORDER_EXECUTION)
 
 
 def test_phase_guard_blocks_live_trading_at_module_level() -> None:
     from aqcs.utils.phase_guard import Feature, PhaseConstraintError, assert_allowed
+
     with pytest.raises(PhaseConstraintError):
         assert_allowed(Feature.LIVE_TRADING)
 
 
 def test_phase_guard_blocks_futures_at_module_level() -> None:
     from aqcs.utils.phase_guard import Feature, PhaseConstraintError, assert_allowed
+
     with pytest.raises(PhaseConstraintError):
         assert_allowed(Feature.FUTURES)
 
 
 def test_phase_guard_blocks_leverage_at_module_level() -> None:
     from aqcs.utils.phase_guard import Feature, PhaseConstraintError, assert_allowed
+
     with pytest.raises(PhaseConstraintError):
         assert_allowed(Feature.LEVERAGE)
 
 
 # ── 5. No execution module has callable order logic ───────────────────────────
+
 
 def test_execution_module_has_no_order_submission_functions() -> None:
     execution_dir = _PROJECT_ROOT / "src" / "aqcs" / "execution"
@@ -176,12 +191,12 @@ def test_execution_module_has_no_order_submission_functions() -> None:
     for src_file in sorted(execution_dir.rglob("*.py")):
         tree = ast.parse(src_file.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.name in forbidden_func_names:
-                    violations.append(
-                        f"  {src_file.relative_to(_PROJECT_ROOT)}: "
-                        f"forbidden function '{node.name}'"
-                    )
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+                node.name in forbidden_func_names
+            ):
+                violations.append(
+                    f"  {src_file.relative_to(_PROJECT_ROOT)}: " f"forbidden function '{node.name}'"
+                )
 
     assert not violations, (
         "Execution module contains order submission function definitions.\n"

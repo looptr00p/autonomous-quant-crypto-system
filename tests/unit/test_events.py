@@ -2,30 +2,26 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from aqcs.utils.events import (
-    ConfigLoadedEvent,
+    _VALID_CATEGORY_FOR_NAME,
     DataDownloadedEvent,
     DataGapDetectedEvent,
     DataSchemaMismatchEvent,
-    DataValidationFailedEvent,
     EventCategory,
     EventName,
     EventSeverity,
     ExperimentCompletedEvent,
     ExperimentFailedEvent,
     ExperimentStartedEvent,
-    OversightReviewEvent,
-    PhaseConstraintBlockedEvent,
-    RiskCheckEvent,
     SignalDirection,
     SignalGeneratedEvent,
     SystemEvent,
-    _VALID_CATEGORY_FOR_NAME,
 )
 
 
@@ -36,7 +32,7 @@ class TestBaseEventContract:
 
     def test_timestamp_is_utc_by_default(self) -> None:
         ev = SystemEvent(component="aqcs.test", event_name=EventName.SYSTEM_STARTUP)
-        assert ev.timestamp_utc.tzinfo == timezone.utc
+        assert ev.timestamp_utc.tzinfo == UTC
         assert ev.timestamp_utc.utcoffset().total_seconds() == 0  # type: ignore[union-attr]
 
     def test_schema_version_default(self) -> None:
@@ -45,7 +41,7 @@ class TestBaseEventContract:
 
     def test_event_is_immutable(self) -> None:
         ev = SystemEvent(component="aqcs.test", event_name=EventName.SYSTEM_STARTUP)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ev.component = "mutated"  # type: ignore[misc]
 
     def test_each_event_has_unique_id(self) -> None:
@@ -91,7 +87,7 @@ class TestUTCEnforcement:
             )
 
     def test_accepts_explicit_utc(self) -> None:
-        utc_dt = datetime(2024, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
+        utc_dt = datetime(2024, 6, 15, 10, 30, 0, tzinfo=UTC)
         ev = SystemEvent(
             component="s",
             event_name=EventName.SYSTEM_STARTUP,
@@ -108,7 +104,7 @@ class TestUTCEnforcement:
             candles_fetched=10,
             output_path="data/raw/x.parquet",
         )
-        assert ev.timestamp_utc.tzinfo == timezone.utc
+        assert ev.timestamp_utc.tzinfo == UTC
 
 
 class TestCategoryNameConsistency:
@@ -143,9 +139,9 @@ class TestCategoryNameConsistency:
 
     def test_every_event_name_has_a_mapping(self) -> None:
         for name in EventName:
-            assert name in _VALID_CATEGORY_FOR_NAME, (
-                f"EventName.{name.name} has no entry in _VALID_CATEGORY_FOR_NAME"
-            )
+            assert (
+                name in _VALID_CATEGORY_FOR_NAME
+            ), f"EventName.{name.name} has no entry in _VALID_CATEGORY_FOR_NAME"
 
 
 class TestNewEventClasses:
@@ -205,7 +201,7 @@ class TestSignalDirection:
         assert isinstance(ev.direction, SignalDirection)
 
     def test_signal_event_rejects_free_string(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             SignalGeneratedEvent(
                 component="aqcs.signals",
                 symbol="BTC/USDT",

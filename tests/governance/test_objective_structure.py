@@ -56,9 +56,8 @@ def test_at_least_one_objective_exists() -> None:
 def test_objective_has_required_sections(obj_file: Path) -> None:
     content = obj_file.read_text(encoding="utf-8")
     missing = [s for s in REQUIRED_SECTIONS if s not in content]
-    assert not missing, (
-        f"{obj_file.name} is missing required sections:\n"
-        + "\n".join(f"  - '{s}'" for s in missing)
+    assert not missing, f"{obj_file.name} is missing required sections:\n" + "\n".join(
+        f"  - '{s}'" for s in missing
     )
 
 
@@ -71,8 +70,7 @@ def test_objective_has_deliverables_section(obj_file: Path) -> None:
     content = obj_file.read_text(encoding="utf-8")
     has_deliverables = any(s in content for s in DELIVERABLE_SECTION_OPTIONS)
     assert has_deliverables, (
-        f"{obj_file.name}: must contain at least one of: "
-        f"{DELIVERABLE_SECTION_OPTIONS}"
+        f"{obj_file.name}: must contain at least one of: " f"{DELIVERABLE_SECTION_OPTIONS}"
     )
 
 
@@ -84,9 +82,7 @@ def test_objective_has_deliverables_section(obj_file: Path) -> None:
 def test_objective_has_related_documents_section(obj_file: Path) -> None:
     content = obj_file.read_text(encoding="utf-8")
     has_related = any(s in content for s in RELATED_SECTION_OPTIONS)
-    assert has_related, (
-        f"{obj_file.name}: must contain a '## Related' section (ADRs or documents)"
-    )
+    assert has_related, f"{obj_file.name}: must contain a '## Related' section (ADRs or documents)"
 
 
 @pytest.mark.parametrize(
@@ -98,9 +94,7 @@ def test_objective_has_objective_id(obj_file: Path) -> None:
     content = obj_file.read_text(encoding="utf-8")
     # Matches "OBJ-001" pattern anywhere in the file
     ids_found = re.findall(r"OBJ-\d+", content)
-    assert ids_found, (
-        f"{obj_file.name}: must contain an Objective ID in OBJ-NNN format"
-    )
+    assert ids_found, f"{obj_file.name}: must contain an Objective ID in OBJ-NNN format"
 
 
 @pytest.mark.parametrize(

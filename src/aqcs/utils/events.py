@@ -11,17 +11,17 @@ Design principles:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 # ── Enumerations ──────────────────────────────────────────────────────────────
 
-class EventCategory(str, Enum):
+
+class EventCategory(StrEnum):
     DATA = "data"
     VALIDATION = "validation"
     CONFIG = "config"
@@ -36,7 +36,7 @@ class EventCategory(str, Enum):
     SYSTEM = "system"
 
 
-class EventName(str, Enum):
+class EventName(StrEnum):
     # data — acquisition events
     DATA_DOWNLOADED = "data.downloaded"
     # validation — data quality events
@@ -71,7 +71,7 @@ class EventName(str, Enum):
     SYSTEM_SHUTDOWN = "system.shutdown"
 
 
-class EventSeverity(str, Enum):
+class EventSeverity(StrEnum):
     DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
@@ -79,7 +79,7 @@ class EventSeverity(str, Enum):
     CRITICAL = "critical"
 
 
-class SignalDirection(str, Enum):
+class SignalDirection(StrEnum):
     LONG = "long"
     SHORT = "short"
     NEUTRAL = "neutral"
@@ -90,26 +90,26 @@ class SignalDirection(str, Enum):
 # authoritative source; BaseEvent validates against it at construction time.
 
 _VALID_CATEGORY_FOR_NAME: dict[EventName, EventCategory] = {
-    EventName.DATA_DOWNLOADED:              EventCategory.DATA,
-    EventName.DATA_VALIDATION_FAILED:       EventCategory.VALIDATION,
-    EventName.DATA_SCHEMA_MISMATCH:         EventCategory.VALIDATION,
-    EventName.DATA_GAP_DETECTED:            EventCategory.VALIDATION,
-    EventName.CONFIG_LOADED:                EventCategory.CONFIG,
-    EventName.PHASE_CONSTRAINT_BLOCKED:     EventCategory.PHASE_GUARD,
+    EventName.DATA_DOWNLOADED: EventCategory.DATA,
+    EventName.DATA_VALIDATION_FAILED: EventCategory.VALIDATION,
+    EventName.DATA_SCHEMA_MISMATCH: EventCategory.VALIDATION,
+    EventName.DATA_GAP_DETECTED: EventCategory.VALIDATION,
+    EventName.CONFIG_LOADED: EventCategory.CONFIG,
+    EventName.PHASE_CONSTRAINT_BLOCKED: EventCategory.PHASE_GUARD,
     EventName.ARCHITECTURE_BOUNDARY_VIOLATION: EventCategory.ARCHITECTURE,
-    EventName.EXPERIMENT_STARTED:           EventCategory.EXPERIMENT,
-    EventName.EXPERIMENT_COMPLETED:         EventCategory.EXPERIMENT,
-    EventName.EXPERIMENT_FAILED:            EventCategory.EXPERIMENT,
-    EventName.SIGNAL_GENERATED:             EventCategory.SIGNAL,
-    EventName.PORTFOLIO_WEIGHTS_COMPUTED:   EventCategory.PORTFOLIO,
-    EventName.RISK_CHECK_PASSED:            EventCategory.RISK,
-    EventName.RISK_CHECK_FAILED:            EventCategory.RISK,
-    EventName.BACKTEST_STARTED:             EventCategory.BACKTESTING,
-    EventName.BACKTEST_COMPLETED:           EventCategory.BACKTESTING,
-    EventName.BACKTEST_FAILED:              EventCategory.BACKTESTING,
-    EventName.OVERSIGHT_REVIEW_GENERATED:   EventCategory.OVERSIGHT,
-    EventName.SYSTEM_STARTUP:               EventCategory.SYSTEM,
-    EventName.SYSTEM_SHUTDOWN:              EventCategory.SYSTEM,
+    EventName.EXPERIMENT_STARTED: EventCategory.EXPERIMENT,
+    EventName.EXPERIMENT_COMPLETED: EventCategory.EXPERIMENT,
+    EventName.EXPERIMENT_FAILED: EventCategory.EXPERIMENT,
+    EventName.SIGNAL_GENERATED: EventCategory.SIGNAL,
+    EventName.PORTFOLIO_WEIGHTS_COMPUTED: EventCategory.PORTFOLIO,
+    EventName.RISK_CHECK_PASSED: EventCategory.RISK,
+    EventName.RISK_CHECK_FAILED: EventCategory.RISK,
+    EventName.BACKTEST_STARTED: EventCategory.BACKTESTING,
+    EventName.BACKTEST_COMPLETED: EventCategory.BACKTESTING,
+    EventName.BACKTEST_FAILED: EventCategory.BACKTESTING,
+    EventName.OVERSIGHT_REVIEW_GENERATED: EventCategory.OVERSIGHT,
+    EventName.SYSTEM_STARTUP: EventCategory.SYSTEM,
+    EventName.SYSTEM_SHUTDOWN: EventCategory.SYSTEM,
 }
 
 
@@ -130,9 +130,7 @@ class BaseEvent(BaseModel):
     event_version: str = EVENT_SCHEMA_VERSION
     event_category: EventCategory
     event_name: EventName
-    timestamp_utc: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    timestamp_utc: datetime = Field(default_factory=lambda: datetime.now(UTC))
     component: str
     severity: EventSeverity = EventSeverity.INFO
     correlation_id: UUID | None = None
@@ -173,6 +171,7 @@ class BaseEvent(BaseModel):
 
 
 # ── Typed event classes ───────────────────────────────────────────────────────
+
 
 class DataDownloadedEvent(BaseEvent):
     event_category: EventCategory = EventCategory.DATA

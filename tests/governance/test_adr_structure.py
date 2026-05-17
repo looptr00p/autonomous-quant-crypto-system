@@ -31,10 +31,7 @@ REQUIRED_SECTIONS: list[str] = [
     "## Related documents",
 ]
 
-_ADR_FILES = [
-    f for f in sorted(_DECISIONS_DIR.glob("ADR-*.md"))
-    if f.name != "ADR-000-template.md"
-]
+_ADR_FILES = [f for f in sorted(_DECISIONS_DIR.glob("ADR-*.md")) if f.name != "ADR-000-template.md"]
 
 
 def test_decisions_directory_exists() -> None:
@@ -46,9 +43,9 @@ def test_at_least_one_adr_exists() -> None:
 
 
 def test_template_exists() -> None:
-    assert (_DECISIONS_DIR / "ADR-000-template.md").is_file(), (
-        "ADR-000-template.md must exist as the canonical ADR format reference"
-    )
+    assert (
+        _DECISIONS_DIR / "ADR-000-template.md"
+    ).is_file(), "ADR-000-template.md must exist as the canonical ADR format reference"
 
 
 @pytest.mark.parametrize(
@@ -76,6 +73,5 @@ def test_adr_status_is_known_value(adr_file: Path) -> None:
     valid_statuses = {"Proposed", "Accepted", "Deprecated", "Superseded"}
     found = any(status in content for status in valid_statuses)
     assert found, (
-        f"{adr_file.name}: Status must be one of {valid_statuses}. "
-        f"Check the 'Status:' field."
+        f"{adr_file.name}: Status must be one of {valid_statuses}. " f"Check the 'Status:' field."
     )

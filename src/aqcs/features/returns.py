@@ -59,7 +59,7 @@ def log_return(prices: pd.Series) -> pd.Series:
             f"Found {n_bad} non-positive value(s). "
             f"Check the input for zero or negative prices."
         )
-    return np.log(prices / prices.shift(1))
+    return pd.Series(np.log(prices / prices.shift(1)), index=prices.index, name=prices.name)
 
 
 def rolling_return(prices: pd.Series, window: int) -> pd.Series:

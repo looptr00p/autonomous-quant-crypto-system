@@ -69,7 +69,7 @@ def fingerprint_file(path: Path, *, dataset_root: Path | None = None) -> str:
                 path_key = str(path.resolve())
         else:
             path_key = str(path.resolve())
-        data = f"{path_key}:{stat.st_size}:{stat.st_mtime_ns}".encode("utf-8")
+        data = f"{path_key}:{stat.st_size}:{stat.st_mtime_ns}".encode()
         return hashlib.sha256(data).hexdigest()
     except (FileNotFoundError, PermissionError, OSError):
         return ""

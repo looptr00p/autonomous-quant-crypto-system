@@ -6,6 +6,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from aqcs.utils.config import Settings, load_config
 
@@ -40,7 +41,7 @@ class TestSettings:
         assert s.enable_live_data is False
 
     def test_invalid_log_level_raises(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             Settings(log_level="VERBOSE")
 
     def test_env_override(self) -> None:

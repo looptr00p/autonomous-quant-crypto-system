@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import platform as _platform
 import sys
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Union
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -16,7 +16,7 @@ _UTC_NAMES: frozenset[str] = frozenset({"UTC", "UTC+00:00", "UTC-00:00", "+00:00
 
 # Allowed metric value types: JSON scalars only.
 # bool must be listed before int — in Python, bool is a subclass of int.
-MetricValue = Union[bool, int, float, str, None]
+MetricValue = bool | int | float | str | None
 
 
 def _require_utc(v: datetime) -> datetime:
@@ -25,14 +25,14 @@ def _require_utc(v: datetime) -> datetime:
             "Experiment timestamps must be UTC-aware. "
             "Use datetime.now(timezone.utc) or attach tzinfo=timezone.utc."
         )
-    if not (v.tzinfo is timezone.utc or str(v.tzinfo).upper() in _UTC_NAMES):
+    if not (v.tzinfo is UTC or str(v.tzinfo).upper() in _UTC_NAMES):
         raise ValueError(
             f"Experiment timestamps must be UTC. Got timezone '{v.tzinfo}'."
         )
     return v
 
 
-class ExperimentStatus(str, Enum):
+class ExperimentStatus(StrEnum):
     CREATED = "created"
     RUNNING = "running"
     COMPLETED = "completed"

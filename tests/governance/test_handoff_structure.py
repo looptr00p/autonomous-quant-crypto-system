@@ -41,13 +41,14 @@ def test_handoffs_directory_exists() -> None:
 
 
 def test_handoffs_readme_exists() -> None:
-    assert (_HANDOFFS_DIR / "README.md").is_file(), (
-        "docs/handoffs/README.md must exist with naming convention and format docs"
-    )
+    assert (
+        _HANDOFFS_DIR / "README.md"
+    ).is_file(), "docs/handoffs/README.md must exist with naming convention and format docs"
 
 
 # The following tests are parametrized by handoff file.
 # If no HND-*.md files exist, pytest collects zero tests — no failure.
+
 
 @pytest.mark.parametrize(
     "hnd_file",
@@ -72,9 +73,7 @@ def test_handoff_has_required_sections(hnd_file: Path) -> None:
 def test_handoff_has_hnd_id(hnd_file: Path) -> None:
     content = hnd_file.read_text(encoding="utf-8")
     ids_found = re.findall(r"HND-\d+", content)
-    assert ids_found, (
-        f"{hnd_file.name}: must contain a Handoff ID in HND-NNN format"
-    )
+    assert ids_found, f"{hnd_file.name}: must contain a Handoff ID in HND-NNN format"
 
 
 @pytest.mark.parametrize(
@@ -109,6 +108,4 @@ def test_handoff_references_existing_adrs(hnd_file: Path) -> None:
     for ref in sorted(adr_refs):
         if not list(decisions_dir.glob(f"{ref}-*.md")):
             missing.append(ref)
-    assert not missing, (
-        f"{hnd_file.name}: references ADRs that do not exist: {missing}"
-    )
+    assert not missing, f"{hnd_file.name}: references ADRs that do not exist: {missing}"

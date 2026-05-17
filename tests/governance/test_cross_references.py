@@ -13,7 +13,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
 import yaml
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -39,6 +38,7 @@ def _find_ids(pattern: str, content: str) -> set[str]:
 
 # ── 1. Agent roles ↔ registry consistency ────────────────────────────────────
 
+
 def test_agent_roles_names_match_registry() -> None:
     roles_path = _PROJECT_ROOT / "docs/ai/AGENT_ROLES.md"
     registry_path = _PROJECT_ROOT / "docs/ai/agent_registry.yaml"
@@ -57,17 +57,20 @@ def test_agent_roles_names_match_registry() -> None:
     missing_in_registry = role_names - registry_names
     missing_in_roles = registry_names - role_names
 
-    assert not missing_in_registry, (
-        f"Agents defined in AGENT_ROLES.md but missing from agent_registry.yaml:\n"
-        + "\n".join(f"  - '{n}'" for n in sorted(missing_in_registry))
+    assert (
+        not missing_in_registry
+    ), "Agents defined in AGENT_ROLES.md but missing from agent_registry.yaml:\n" + "\n".join(
+        f"  - '{n}'" for n in sorted(missing_in_registry)
     )
-    assert not missing_in_roles, (
-        f"Agents in agent_registry.yaml but not defined in AGENT_ROLES.md:\n"
-        + "\n".join(f"  - '{n}'" for n in sorted(missing_in_roles))
+    assert (
+        not missing_in_roles
+    ), "Agents in agent_registry.yaml but not defined in AGENT_ROLES.md:\n" + "\n".join(
+        f"  - '{n}'" for n in sorted(missing_in_roles)
     )
 
 
 # ── 2. ADR references in objective docs exist ─────────────────────────────────
+
 
 def test_adr_references_in_objectives_exist() -> None:
     obj_dir = _PROJECT_ROOT / "docs/objectives"
@@ -90,9 +93,9 @@ def test_adr_references_in_objectives_exist() -> None:
 
 # ── 3. OBJ cross-references within objective docs ────────────────────────────
 
+
 def test_obj_references_within_objectives_exist() -> None:
     obj_dir = _PROJECT_ROOT / "docs/objectives"
-    obj_files = {f.stem: f for f in obj_dir.glob("OBJ-*.md")}
     missing: list[str] = []
 
     for obj_file in sorted(obj_dir.glob("OBJ-*.md")):
@@ -107,9 +110,7 @@ def test_obj_references_within_objectives_exist() -> None:
         for ref in sorted(refs):
             matching = list(obj_dir.glob(f"{ref}-*.md"))
             if not matching:
-                missing.append(
-                    f"  {obj_file.name} → {ref} (no matching file in docs/objectives/)"
-                )
+                missing.append(f"  {obj_file.name} → {ref} (no matching file in docs/objectives/)")
 
     assert not missing, (
         "The following OBJ references within objective docs do not resolve to existing files:\n"
@@ -118,6 +119,7 @@ def test_obj_references_within_objectives_exist() -> None:
 
 
 # ── 4. AGENTS.md links to canonical governance docs ──────────────────────────
+
 
 def test_agents_md_links_to_required_docs() -> None:
     agents_content = _read(_PROJECT_ROOT / "AGENTS.md")
@@ -132,6 +134,7 @@ def test_agents_md_links_to_required_docs() -> None:
 # ── 5. Every canonical doc in registry actually exists ───────────────────────
 # (Also tested in test_agent_registry.py — kept here for cross-document framing)
 
+
 def test_governance_canonical_docs_exist() -> None:
     registry = yaml.safe_load(_read(_PROJECT_ROOT / "docs/ai/agent_registry.yaml"))
     all_docs: set[str] = set()
@@ -139,7 +142,8 @@ def test_governance_canonical_docs_exist() -> None:
         all_docs.update(agent.get("canonical_docs_to_read", []))
 
     missing = [doc for doc in sorted(all_docs) if not (_PROJECT_ROOT / doc).is_file()]
-    assert not missing, (
-        "The following canonical docs referenced across all agents do not exist:\n"
-        + "\n".join(f"  - '{doc}'" for doc in missing)
+    assert (
+        not missing
+    ), "The following canonical docs referenced across all agents do not exist:\n" + "\n".join(
+        f"  - '{doc}'" for doc in missing
     )

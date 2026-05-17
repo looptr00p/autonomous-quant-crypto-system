@@ -22,59 +22,67 @@ _LLM_DIR = _PROJECT_ROOT / "src" / "aqcs" / "llm_oversight"
 _LLM_FILES = sorted(_LLM_DIR.rglob("*.py"))
 
 # Function names that would indicate the LLM is generating executable decisions
-_FORBIDDEN_FUNCTION_NAMES: frozenset[str] = frozenset({
-    "generate_signal",
-    "compute_signal",
-    "compute_weight",
-    "set_position",
-    "place_order",
-    "create_order",
-    "submit_order",
-    "modify_config",
-    "set_config",
-    "update_config",
-    "update_risk",
-    "set_risk",
-    "update_strategy",
-    "set_strategy",
-    "execute",
-    "run_strategy",
-    "override_phase_guard",
-    "bypass_phase_guard",
-})
+_FORBIDDEN_FUNCTION_NAMES: frozenset[str] = frozenset(
+    {
+        "generate_signal",
+        "compute_signal",
+        "compute_weight",
+        "set_position",
+        "place_order",
+        "create_order",
+        "submit_order",
+        "modify_config",
+        "set_config",
+        "update_config",
+        "update_risk",
+        "set_risk",
+        "update_strategy",
+        "set_strategy",
+        "execute",
+        "run_strategy",
+        "override_phase_guard",
+        "bypass_phase_guard",
+    }
+)
 
 # Method calls that indicate order submission
-_FORBIDDEN_METHOD_CALLS: frozenset[str] = frozenset({
-    "create_order",
-    "place_order",
-    "submit_order",
-    "set_leverage",
-    "set_margin_mode",
-})
+_FORBIDDEN_METHOD_CALLS: frozenset[str] = frozenset(
+    {
+        "create_order",
+        "place_order",
+        "submit_order",
+        "set_leverage",
+        "set_margin_mode",
+    }
+)
 
 # aqcs.* sub-packages the LLM layer must not import
-_FORBIDDEN_IMPORTS: frozenset[str] = frozenset({
-    "aqcs.signals",
-    "aqcs.portfolio",
-    "aqcs.risk",
-    "aqcs.execution",
-    "aqcs.backtesting",
-    "aqcs.data",
-    "aqcs.features",
-    "aqcs.monitoring",
-})
+_FORBIDDEN_IMPORTS: frozenset[str] = frozenset(
+    {
+        "aqcs.signals",
+        "aqcs.portfolio",
+        "aqcs.risk",
+        "aqcs.execution",
+        "aqcs.backtesting",
+        "aqcs.data",
+        "aqcs.features",
+        "aqcs.monitoring",
+    }
+)
 
 
 # ── 1. No forbidden function definitions ──────────────────────────────────────
+
 
 @pytest.mark.parametrize("llm_file", _LLM_FILES, ids=[f.name for f in _LLM_FILES])
 def test_llm_oversight_has_no_signal_generation_functions(llm_file: Path) -> None:
     tree = ast.parse(llm_file.read_text(encoding="utf-8"))
     violations: list[str] = []
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if node.name in _FORBIDDEN_FUNCTION_NAMES:
-                violations.append(f"  forbidden function: '{node.name}'")
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+            node.name in _FORBIDDEN_FUNCTION_NAMES
+        ):
+            violations.append(f"  forbidden function: '{node.name}'")
     assert not violations, (
         f"{llm_file.name}: LLM Oversight must not define signal/config/execution functions.\n"
         + "\n".join(violations)
@@ -84,6 +92,7 @@ def test_llm_oversight_has_no_signal_generation_functions(llm_file: Path) -> Non
 
 # ── 2. No order submission method calls ───────────────────────────────────────
 
+
 @pytest.mark.parametrize("llm_file", _LLM_FILES, ids=[f.name for f in _LLM_FILES])
 def test_llm_oversight_makes_no_order_calls(llm_file: Path) -> None:
     tree = ast.parse(llm_file.read_text(encoding="utf-8"))
@@ -91,13 +100,15 @@ def test_llm_oversight_makes_no_order_calls(llm_file: Path) -> None:
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and node.attr in _FORBIDDEN_METHOD_CALLS:
             violations.append(f"  call/access to '{node.attr}'")
-    assert not violations, (
-        f"{llm_file.name}: LLM Oversight must not call order submission methods.\n"
-        + "\n".join(violations)
+    assert (
+        not violations
+    ), f"{llm_file.name}: LLM Oversight must not call order submission methods.\n" + "\n".join(
+        violations
     )
 
 
 # ── 3. No forbidden aqcs.* imports ────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("llm_file", _LLM_FILES, ids=[f.name for f in _LLM_FILES])
 def test_llm_oversight_has_no_forbidden_aqcs_imports(llm_file: Path) -> None:
@@ -121,6 +132,7 @@ def test_llm_oversight_has_no_forbidden_aqcs_imports(llm_file: Path) -> None:
 
 
 # ── 4. OversightObserver public API is constrained ───────────────────────────
+
 
 def test_oversight_observer_public_methods_are_allowed() -> None:
     """OversightObserver's public methods must only be: subscribe, generate_review,
@@ -150,6 +162,7 @@ def test_oversight_observer_public_methods_are_allowed() -> None:
 
 # ── 5. generate_review returns OversightReviewEvent only ─────────────────────
 
+
 def test_generate_review_returns_oversight_event_type() -> None:
     """Verify that generate_review() is annotated to return OversightReviewEvent,
     not a signal, weight, or generic type that could carry trading instructions."""
@@ -170,6 +183,7 @@ def test_generate_review_returns_oversight_event_type() -> None:
 
 
 # ── 6. Phase Guard is not bypassed in LLM layer ───────────────────────────────
+
 
 def test_llm_oversight_does_not_bypass_phase_guard() -> None:
     """LLM Oversight must not call assert_allowed() to check if features are

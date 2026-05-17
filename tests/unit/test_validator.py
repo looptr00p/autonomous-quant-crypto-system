@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from dataclasses import FrozenInstanceError
+from datetime import UTC, datetime
 
 import pandas as pd
 import pytest
@@ -20,26 +21,29 @@ from aqcs.utils.events import (
     EventCategory,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _make_df(n: int = 5, *, start: str = "2024-01-01", freq: str = "1D") -> pd.DataFrame:
     """Synthetic valid daily OHLCV frame with UTC timestamps."""
     dates = pd.date_range(start=start, periods=n, freq=freq, tz="UTC")
-    return pd.DataFrame({
-        "timestamp": dates,
-        "open":      [100.0 + i for i in range(n)],
-        "high":      [110.0 + i for i in range(n)],
-        "low":       [90.0 + i for i in range(n)],
-        "close":     [105.0 + i for i in range(n)],
-        "volume":    [1000.0 + i for i in range(n)],
-        "symbol":    "BTC/USDT",
-        "timeframe": "1d",
-        "exchange":  "binance",
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "open": [100.0 + i for i in range(n)],
+            "high": [110.0 + i for i in range(n)],
+            "low": [90.0 + i for i in range(n)],
+            "close": [105.0 + i for i in range(n)],
+            "volume": [1000.0 + i for i in range(n)],
+            "symbol": "BTC/USDT",
+            "timeframe": "1d",
+            "exchange": "binance",
+        }
+    )
 
 
 # ── ValidationResult metadata ─────────────────────────────────────────────────
+
 
 class TestValidationResultMetadata:
     def test_valid_result_has_metadata(self) -> None:
@@ -58,7 +62,7 @@ class TestValidationResultMetadata:
         df = _make_df(3)
         r = validate_ohlcv(df, "BTC/USDT", "1d")
         assert r.start_timestamp is not None
-        assert r.start_timestamp.tzinfo == timezone.utc
+        assert r.start_timestamp.tzinfo == UTC
 
     def test_empty_dataset_result_has_zero_row_count(self) -> None:
         df = pd.DataFrame(columns=REQUIRED_COLUMNS)
@@ -76,7 +80,7 @@ class TestValidationResultMetadata:
 
     def test_result_is_immutable(self) -> None:
         r = ValidationResult(is_valid=True)
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             r.is_valid = False  # type: ignore[misc]
 
     def test_has_warnings_property(self) -> None:
@@ -89,6 +93,7 @@ class TestValidationResultMetadata:
 
 
 # ── Happy path ────────────────────────────────────────────────────────────────
+
 
 class TestValidOHLCV:
     def test_valid_frame_passes(self) -> None:
@@ -109,6 +114,7 @@ class TestValidOHLCV:
 
 
 # ── Empty dataset ─────────────────────────────────────────────────────────────
+
 
 class TestEmptyDataset:
     def test_empty_dataframe_is_invalid(self) -> None:
@@ -135,6 +141,7 @@ class TestEmptyDataset:
 
 # ── Schema check ──────────────────────────────────────────────────────────────
 
+
 class TestSchemaValidation:
     def test_missing_column_is_invalid(self) -> None:
         df = _make_df().drop(columns=["volume"])
@@ -157,6 +164,7 @@ class TestSchemaValidation:
 
 
 # ── Null checks ───────────────────────────────────────────────────────────────
+
 
 class TestNullValidation:
     def test_null_close_is_invalid(self) -> None:
@@ -184,6 +192,7 @@ class TestNullValidation:
 
 # ── UTC timestamp enforcement ─────────────────────────────────────────────────
 
+
 class TestUTCTimestampEnforcement:
     def test_naive_timestamps_rejected(self) -> None:
         df = _make_df()
@@ -203,6 +212,7 @@ class TestUTCTimestampEnforcement:
     def test_non_utc_aware_timestamps_rejected(self) -> None:
         """America/New_York is UTC-aware but not UTC — must be rejected."""
         from zoneinfo import ZoneInfo
+
         dates = pd.date_range("2024-01-01", periods=5, freq="1D", tz=ZoneInfo("America/New_York"))
         df = _make_df()
         df["timestamp"] = dates
@@ -213,6 +223,7 @@ class TestUTCTimestampEnforcement:
     def test_europe_london_winter_rejected(self) -> None:
         """Europe/London has offset +0 in winter but is NOT UTC — reject by name."""
         from zoneinfo import ZoneInfo
+
         dates = pd.date_range("2024-01-01", periods=5, freq="1D", tz=ZoneInfo("Europe/London"))
         df = _make_df()
         df["timestamp"] = dates
@@ -223,11 +234,11 @@ class TestUTCTimestampEnforcement:
     def test_explicit_utc_datetime_accepted(self) -> None:
         df = _make_df()
         utc_dates = [
-            datetime(2024, 1, 1, tzinfo=timezone.utc),
-            datetime(2024, 1, 2, tzinfo=timezone.utc),
-            datetime(2024, 1, 3, tzinfo=timezone.utc),
-            datetime(2024, 1, 4, tzinfo=timezone.utc),
-            datetime(2024, 1, 5, tzinfo=timezone.utc),
+            datetime(2024, 1, 1, tzinfo=UTC),
+            datetime(2024, 1, 2, tzinfo=UTC),
+            datetime(2024, 1, 3, tzinfo=UTC),
+            datetime(2024, 1, 4, tzinfo=UTC),
+            datetime(2024, 1, 5, tzinfo=UTC),
         ]
         df["timestamp"] = pd.DatetimeIndex(utc_dates)
         result = validate_ohlcv(df, "BTC/USDT", "1d")
@@ -235,6 +246,7 @@ class TestUTCTimestampEnforcement:
 
 
 # ── Duplicate timestamps ──────────────────────────────────────────────────────
+
 
 class TestDuplicateTimestamps:
     def test_duplicate_is_invalid(self) -> None:
@@ -253,6 +265,7 @@ class TestDuplicateTimestamps:
 
 # ── Strictly increasing timestamps ────────────────────────────────────────────
 
+
 class TestMonotonicTimestamps:
     def test_sorted_timestamps_pass(self) -> None:
         df = _make_df()
@@ -264,7 +277,8 @@ class TestMonotonicTimestamps:
         df = _make_df()
         # Swap rows 1 and 3 to create non-monotonic order
         df.loc[1, "timestamp"], df.loc[3, "timestamp"] = (
-            df.loc[3, "timestamp"], df.loc[1, "timestamp"]
+            df.loc[3, "timestamp"],
+            df.loc[1, "timestamp"],
         )
         result = validate_ohlcv(df, "BTC/USDT", "1d")
         assert not result.is_valid
@@ -274,7 +288,8 @@ class TestMonotonicTimestamps:
         """Out-of-order timestamps without duplicates should only raise monotonic error."""
         df = _make_df()
         df.loc[1, "timestamp"], df.loc[3, "timestamp"] = (
-            df.loc[3, "timestamp"], df.loc[1, "timestamp"]
+            df.loc[3, "timestamp"],
+            df.loc[1, "timestamp"],
         )
         result = validate_ohlcv(df, "BTC/USDT", "1d")
         assert not result.is_valid
@@ -291,6 +306,7 @@ class TestMonotonicTimestamps:
 
 
 # ── OHLCV consistency ─────────────────────────────────────────────────────────
+
 
 class TestOHLCVConsistency:
     def test_high_lt_low_is_invalid(self) -> None:
@@ -365,6 +381,7 @@ class TestOHLCVConsistency:
 
 # ── Metadata column validation ────────────────────────────────────────────────
 
+
 class TestMetadataValidation:
     def test_empty_symbol_column_is_invalid(self) -> None:
         df = _make_df()
@@ -409,6 +426,7 @@ class TestMetadataValidation:
 
 # ── Gap detection ─────────────────────────────────────────────────────────────
 
+
 class TestGapDetection:
     def _make_gapped_df(self) -> pd.DataFrame:
         dates = [
@@ -417,17 +435,19 @@ class TestGapDetection:
             pd.Timestamp("2024-01-04", tz="UTC"),  # 2024-01-03 missing
             pd.Timestamp("2024-01-05", tz="UTC"),
         ]
-        return pd.DataFrame({
-            "timestamp": dates,
-            "open":  [100.0, 101.0, 103.0, 104.0],
-            "high":  [110.0, 111.0, 113.0, 114.0],
-            "low":   [90.0,  91.0,  93.0,  94.0],
-            "close": [105.0, 106.0, 108.0, 109.0],
-            "volume":[1000.0,1001.0,1003.0,1004.0],
-            "symbol": "BTC/USDT",
-            "timeframe": "1d",
-            "exchange": "binance",
-        })
+        return pd.DataFrame(
+            {
+                "timestamp": dates,
+                "open": [100.0, 101.0, 103.0, 104.0],
+                "high": [110.0, 111.0, 113.0, 114.0],
+                "low": [90.0, 91.0, 93.0, 94.0],
+                "close": [105.0, 106.0, 108.0, 109.0],
+                "volume": [1000.0, 1001.0, 1003.0, 1004.0],
+                "symbol": "BTC/USDT",
+                "timeframe": "1d",
+                "exchange": "binance",
+            }
+        )
 
     def test_gap_produces_warning_not_error(self) -> None:
         df = self._make_gapped_df()
@@ -462,6 +482,7 @@ class TestGapDetection:
 
 
 # ── Event bus integration ─────────────────────────────────────────────────────
+
 
 class TestEventBusIntegration:
     def test_multiple_errors_emit_multiple_events(self) -> None:

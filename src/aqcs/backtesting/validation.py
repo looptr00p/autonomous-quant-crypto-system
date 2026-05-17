@@ -64,6 +64,5 @@ def validate_backtest_inputs(
 
     if errors:
         raise ValueError(
-            "Backtest input validation failed:\n"
-            + "\n".join(f"  • {e}" for e in errors)
+            "Backtest input validation failed:\n" + "\n".join(f"  • {e}" for e in errors)
         )

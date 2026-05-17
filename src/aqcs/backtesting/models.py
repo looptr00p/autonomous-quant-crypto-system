@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 
 # ── Input model (Pydantic — user-facing, validates at construction) ────────────
 
+
 class BacktestConfig(BaseModel):
     """Configuration for a single backtest run.
 
@@ -22,7 +23,9 @@ class BacktestConfig(BaseModel):
     fee_bps: float = Field(..., ge=0, description="Taker fee in basis points (e.g., 10 = 0.10%)")
     slippage_bps: float = Field(..., ge=0, description="Half-spread slippage in bps per side")
     position_size_fraction: float = Field(
-        default=1.0, gt=0, le=1.0,
+        default=1.0,
+        gt=0,
+        le=1.0,
         description="Fraction of equity deployed per trade (1.0 = fully invested)",
     )
     allow_fractional: bool = Field(
@@ -74,17 +77,18 @@ class BacktestConfig(BaseModel):
 
 # ── Result models (frozen dataclasses — internal, built by the engine) ────────
 
+
 @dataclass(frozen=True)
 class Trade:
     """Record of a single executed order."""
 
     timestamp: datetime
-    side: str                 # "buy" or "sell"
-    fill_price: float         # execution price after slippage
+    side: str  # "buy" or "sell"
+    fill_price: float  # execution price after slippage
     quantity: float
-    fee: float                # total fee paid
-    slippage_amount: float    # total slippage cost (fill_price vs open_price) * quantity
-    value: float              # fill_price * quantity (before fee)
+    fee: float  # total fee paid
+    slippage_amount: float  # total slippage cost (fill_price vs open_price) * quantity
+    value: float  # fill_price * quantity (before fee)
 
 
 @dataclass(frozen=True)
@@ -92,10 +96,10 @@ class EquityCurvePoint:
     """Snapshot of portfolio state at the close of a single bar."""
 
     timestamp: datetime
-    equity: float    # cash + position * close_price
+    equity: float  # cash + position * close_price
     cash: float
     position: float  # units of asset held
-    price: float     # close price of the bar
+    price: float  # close price of the bar
 
 
 @dataclass(frozen=True)

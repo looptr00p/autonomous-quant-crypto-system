@@ -89,9 +89,7 @@ def test_package_directory_exists(pkg: str) -> None:
 @pytest.mark.parametrize("pkg", EXPECTED_PACKAGES)
 def test_package_has_init(pkg: str) -> None:
     init = Path(pkg) / "__init__.py"
-    assert init.exists(), (
-        f"'{init}' is missing. Every aqcs/ package must have an __init__.py."
-    )
+    assert init.exists(), f"'{init}' is missing. Every aqcs/ package must have an __init__.py."
 
 
 @pytest.mark.parametrize("fp", EXPECTED_FILES)

@@ -10,7 +10,7 @@ Design constraints:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -28,7 +28,7 @@ from aqcs.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-_UTC = timezone.utc
+_UTC = UTC
 
 # Statuses from which an experiment can be completed or failed
 _ACTIVE_STATUSES = frozenset({ExperimentStatus.CREATED, ExperimentStatus.RUNNING})

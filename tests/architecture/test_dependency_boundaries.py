@@ -18,20 +18,25 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # Canonical DAG — source of truth: docs/architecture/system-architecture-v1.md §5
 # Key: owner package.  Value: set of aqcs.* packages it is allowed to import.
 ALLOWED: dict[str, set[str]] = {
-    "aqcs.utils":         set(),
-    "aqcs.data":          {"aqcs.utils"},
-    "aqcs.features":      {"aqcs.data", "aqcs.utils"},
-    "aqcs.signals":       {"aqcs.features", "aqcs.utils"},
-    "aqcs.portfolio":     {"aqcs.signals", "aqcs.utils"},
-    "aqcs.risk":          {"aqcs.portfolio", "aqcs.utils"},
-    "aqcs.execution":     {"aqcs.risk", "aqcs.utils"},
-    "aqcs.experiments":   {"aqcs.utils"},
-    "aqcs.backtesting":   {
-        "aqcs.data", "aqcs.features", "aqcs.signals",
-        "aqcs.portfolio", "aqcs.risk", "aqcs.execution",
-        "aqcs.experiments", "aqcs.utils",
+    "aqcs.utils": set(),
+    "aqcs.data": {"aqcs.utils"},
+    "aqcs.features": {"aqcs.data", "aqcs.utils"},
+    "aqcs.signals": {"aqcs.features", "aqcs.utils"},
+    "aqcs.portfolio": {"aqcs.signals", "aqcs.utils"},
+    "aqcs.risk": {"aqcs.portfolio", "aqcs.utils"},
+    "aqcs.execution": {"aqcs.risk", "aqcs.utils"},
+    "aqcs.experiments": {"aqcs.utils"},
+    "aqcs.backtesting": {
+        "aqcs.data",
+        "aqcs.features",
+        "aqcs.signals",
+        "aqcs.portfolio",
+        "aqcs.risk",
+        "aqcs.execution",
+        "aqcs.experiments",
+        "aqcs.utils",
     },
-    "aqcs.monitoring":    {"aqcs.data", "aqcs.utils"},
+    "aqcs.monitoring": {"aqcs.data", "aqcs.utils"},
     "aqcs.llm_oversight": {"aqcs.utils"},
 }
 
@@ -74,8 +79,7 @@ def test_import_boundary(src_file: Path) -> None:
 
     allowed = ALLOWED[owner]
     violations = [
-        imp for imp in extract_aqcs_imports(src_file)
-        if imp not in allowed and imp != owner
+        imp for imp in extract_aqcs_imports(src_file) if imp not in allowed and imp != owner
     ]
 
     assert not violations, (
