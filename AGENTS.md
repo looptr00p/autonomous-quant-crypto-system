@@ -80,11 +80,12 @@ Before implementing any change, an agent must have read or verified the followin
 1. **`AGENTS.md`** — this file
 2. **`docs/ai/AQCS_CONTEXT.md`** — canonical project context
 3. **`docs/ai/AGENT_ROLES.md`** — role boundaries and permissions
-4. **`docs/architecture/system-architecture-v1.md`** — component specifications and DAG
-5. **`docs/standards/project-standards.md`** — coding and documentation standards
-6. **`docs/standards/phase-constraints.md`** — what is prohibited in the current phase
-7. **`docs/architecture/event-schema.md`** — event types and bus behavior
-8. **`docs/architecture/data-validation.md`** — validation rules and invariants
+4. **`docs/ai/TASK_PROTOCOL.md`** — task format, ID system, required workflow
+5. **`docs/architecture/system-architecture-v1.md`** — component specifications and DAG
+6. **`docs/standards/project-standards.md`** — coding and documentation standards
+7. **`docs/standards/phase-constraints.md`** — what is prohibited in the current phase
+8. **`docs/architecture/event-schema.md`** — event types and bus behavior
+9. **`docs/architecture/data-validation.md`** — validation rules and invariants
 
 ---
 

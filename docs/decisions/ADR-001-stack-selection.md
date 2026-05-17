@@ -46,3 +46,10 @@ AQCS needs a stable, well-supported stack for quantitative crypto research. The 
 | polars | Less mature ecosystem, harder to find quant-specific help |
 | SQLite | Less efficient than Parquet for column-oriented analytics |
 | requests-based exchange client | ccxt handles rate limits, pagination, normalization |
+
+## Related documents
+
+- `pyproject.toml` — dependency declarations
+- `requirements/base.txt` — pinned runtime dependencies
+- `requirements/dev.txt` — pinned dev dependencies
+- `docs/standards/project-standards.md` — tooling configuration standards

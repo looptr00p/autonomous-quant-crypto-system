@@ -47,6 +47,9 @@ EXPECTED_FILES = [
     "docs/ai/TASK_PROTOCOL.md",
     "docs/ai/HANDOFF_TEMPLATE.md",
     "docs/ai/agent_registry.yaml",
+    # Handoff and audit directories
+    "docs/handoffs/README.md",
+    "docs/audits/README.md",
     # ADR system
     "docs/decisions/ADR-000-template.md",
     # Config

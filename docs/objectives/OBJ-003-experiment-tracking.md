@@ -23,7 +23,7 @@ This is not an ML experiment tracking system (no MLflow, no Weights & Biases). I
 - Storage in `experiments/` as Markdown + optional Parquet for metrics
 - Helper to verify experiment reproducibility (same commit + data + params → same result)
 
-Not in scope: ML hyperparameter search, distributed experiment runs, experiment comparison UI, backtesting engine (OBJ-004+).
+Not in scope: ML hyperparameter search, distributed experiment runs, experiment comparison UI, backtesting engine (planned for Phase 2).
 
 ---
 

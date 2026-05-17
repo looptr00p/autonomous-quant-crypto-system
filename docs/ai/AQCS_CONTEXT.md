@@ -142,9 +142,9 @@ Attempting to use a blocked feature raises `PhaseConstraintError` immediately.
 | Layer | Objective | Phase |
 |-------|-----------|-------|
 | Experiment Tracking | OBJ-003 | 1 (next) |
-| Feature Engineering | OBJ-004 | 2 |
-| Backtesting Engine | OBJ-005 | 2 |
-| Signal Generation | OBJ-006 | 2 |
+| Feature Engineering | planned | 2 |
+| Backtesting Engine | planned | 2 |
+| Signal Generation | planned | 2 |
 
 ---
 
