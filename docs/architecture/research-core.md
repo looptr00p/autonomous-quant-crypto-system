@@ -73,8 +73,9 @@ All feature functions validate:
 
 ### Responsibilities
 
-- Translate feature values into directional signals (`LONG`, `SHORT`, `NEUTRAL`)
-- Accept feature Series as inputs, return `pd.Series[SignalDirection]`
+- Translate price or feature Series into directional signals (`LONG`, `SHORT`, `NEUTRAL`)
+- `momentum_rank_signal` and `combined_momentum_trend_signal` accept **prices**, not per-period returns
+- Return `pd.Series[SignalDirection]`
 - Be deterministic: same input always produces same signal
 - Use only current and past data: no future returns, no forward-looking logic
 - Have no portfolio, sizing, or execution logic
@@ -83,9 +84,9 @@ All feature functions validate:
 
 | Function | Module | Description |
 |----------|--------|-------------|
-| `momentum_rank_signal` | `momentum` | Time-series momentum via expanding percentile rank |
-| `trend_filter_signal` | `trend` | MA crossover: short MA vs long MA |
-| `combined_momentum_trend_signal` | `combined` | LONG/SHORT only when both momentum and trend agree |
+| `momentum_rank_signal` | `momentum` | Time-series momentum: ranks N-period **price** return in expanding history |
+| `trend_filter_signal` | `trend` | MA crossover: short MA vs long MA (takes prices) |
+| `combined_momentum_trend_signal` | `combined` | LONG/SHORT only when both agree; **prices-only** API |
 
 ### SignalDirection
 
@@ -104,11 +105,15 @@ Using the canonical enum from the Event Schema ensures consistency between signa
 
 Signal functions are tested with the same partial-application method as features. No signal at time T may use data from T+1 or later.
 
-`momentum_rank_signal` uses `expanding().rank(pct=True)` — the percentile rank of the current rolling return within the expanding history from 0 to T. This is causal by construction.
+`momentum_rank_signal` accepts **prices** and internally computes `rolling_return(prices, N)` — the N-period price return. It does NOT accept per-period returns. Passing pre-computed returns would produce "returns of returns", which is a semantic error. The rank is computed via `expanding().rank(pct=True)` over the rolling price returns, which is causal.
 
-`trend_filter_signal` uses two SMAs, both of which are causal.
+Warm-up: the first 2*window − 1 bars are NEUTRAL. `rolling_return` needs `window` bars, and `expanding(min_periods=window).rank()` needs `window` non-NaN values after that.
 
-`combined_momentum_trend_signal` is LONG only when both component signals are independently LONG, and SHORT only when both are SHORT. Disagreement produces NEUTRAL.
+`trend_filter_signal` accepts **prices** and uses two SMAs, both of which are causal.
+
+`combined_momentum_trend_signal` accepts only **prices** (no separate returns parameter), derives both momentum and trend from the same price series, and requires both to agree before emitting LONG or SHORT. Disagreement → NEUTRAL.
+
+`log_return` rejects prices ≤ 0 at construction time (log of zero is −∞, log of negative is undefined).
 
 ---
 

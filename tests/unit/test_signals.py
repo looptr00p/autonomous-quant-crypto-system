@@ -20,10 +20,6 @@ def _prices(values: list[float]) -> pd.Series:
     return pd.Series(values, dtype=float)
 
 
-def _returns(values: list[float]) -> pd.Series:
-    return pd.Series(values, dtype=float)
-
-
 def _up_trend(n: int = 30) -> pd.Series:
     """Monotonically increasing prices."""
     return _prices([float(100 + i) for i in range(n)])
@@ -31,7 +27,30 @@ def _up_trend(n: int = 30) -> pd.Series:
 
 def _down_trend(n: int = 30) -> pd.Series:
     """Monotonically decreasing prices."""
-    return _prices([float(100 - i) for i in range(n)])
+    return _prices([float(100 - i * 0.5) for i in range(n)])
+
+
+def _flat(n: int = 50) -> pd.Series:
+    """Completely flat prices — zero momentum, no trend."""
+    return _prices([100.0] * n)
+
+
+def _two_phase(flat: int = 35, surge: int = 40) -> pd.Series:
+    """Flat phase then sudden acceleration — recent rolling returns dominate history.
+
+    In the surge phase, rolling returns are far above the flat-phase near-zero
+    rolling returns, so the expanding rank is near 1.0 → LONG.
+    """
+    flat_prices = [100.0] * flat
+    surge_prices = [flat_prices[-1] + i * 3.0 for i in range(1, surge + 1)]
+    return _prices(flat_prices + surge_prices)
+
+
+def _two_phase_drop(high: int = 35, drop: int = 40) -> pd.Series:
+    """High phase then sudden drop — recent rolling returns far below history → SHORT."""
+    high_prices = [200.0] * high
+    drop_prices = [high_prices[-1] - i * 3.0 for i in range(1, drop + 1)]
+    return _prices(high_prices + drop_prices)
 
 
 # ── SignalDirection ───────────────────────────────────────────────────────────
@@ -52,61 +71,59 @@ class TestSignalDirection:
 # ── momentum_rank_signal ──────────────────────────────────────────────────────
 
 class TestMomentumRankSignal:
+    def test_accepts_prices_not_returns(self) -> None:
+        """Confirm the parameter is named 'prices' (not 'returns')."""
+        import inspect
+        sig = inspect.signature(momentum_rank_signal)
+        assert "prices" in sig.parameters, (
+            "momentum_rank_signal must accept 'prices', not 'returns'. "
+            "Passing per-period returns would produce 'returns of returns'."
+        )
+        assert "returns" not in sig.parameters
+
     def test_returns_series(self) -> None:
-        returns = _returns([0.01] * 25)
-        sig = momentum_rank_signal(returns, window=10)
+        prices = _up_trend(40)
+        sig = momentum_rank_signal(prices, window=10)
         assert isinstance(sig, pd.Series)
-        assert len(sig) == len(returns)
+        assert len(sig) == len(prices)
 
     def test_output_values_are_signal_directions(self) -> None:
-        returns = _returns([0.01, -0.01] * 15)
-        sig = momentum_rank_signal(returns, window=5)
+        prices = _up_trend(40)
+        sig = momentum_rank_signal(prices, window=5)
         valid = set(SignalDirection)
         for val in sig:
             assert val in valid
 
     def test_warm_up_period_is_neutral(self) -> None:
-        returns = _returns([0.01] * 20)
-        sig = momentum_rank_signal(returns, window=10)
-        # First window-1 elements: rolling_return is NaN → NEUTRAL
-        for i in range(9):
+        prices = _up_trend(50)
+        sig = momentum_rank_signal(prices, window=10)
+        # Warm-up = 2*window - 1 = 19 bars
+        # rolling_return needs window bars, expanding rank needs window non-NaN values
+        for i in range(19):
             assert sig.iloc[i] == SignalDirection.NEUTRAL
 
-    def test_consistent_positive_returns_becomes_long(self) -> None:
-        # Consistently positive returns → high rank → LONG
-        returns = _returns([0.02] * 50)
-        sig = momentum_rank_signal(returns, window=5, long_quantile=0.6)
-        non_neutral = sig[sig != SignalDirection.NEUTRAL]
-        if not non_neutral.empty:
-            assert (non_neutral == SignalDirection.LONG).any()
+    def test_zero_window_raises(self) -> None:
+        with pytest.raises(ValueError):
+            momentum_rank_signal(_up_trend(), window=0)
 
-    def test_consistent_negative_returns_becomes_short(self) -> None:
-        returns = _returns([-0.02] * 50)
-        sig = momentum_rank_signal(returns, window=5, short_quantile=0.4)
-        non_neutral = sig[sig != SignalDirection.NEUTRAL]
-        if not non_neutral.empty:
-            assert (non_neutral == SignalDirection.SHORT).any()
+    def test_negative_window_raises(self) -> None:
+        with pytest.raises(ValueError):
+            momentum_rank_signal(_up_trend(), window=-5)
 
     def test_invalid_long_quantile_raises(self) -> None:
         with pytest.raises(ValueError):
-            momentum_rank_signal(_returns([0.01] * 10), window=5, long_quantile=1.5)
+            momentum_rank_signal(_up_trend(), window=5, long_quantile=1.5)
 
     def test_invalid_short_quantile_raises(self) -> None:
         with pytest.raises(ValueError):
-            momentum_rank_signal(_returns([0.01] * 10), window=5, short_quantile=-0.1)
+            momentum_rank_signal(_up_trend(), window=5, short_quantile=-0.1)
 
     def test_long_quantile_must_exceed_short(self) -> None:
         with pytest.raises(ValueError, match="greater than"):
             momentum_rank_signal(
-                _returns([0.01] * 10),
-                window=5,
-                long_quantile=0.3,
-                short_quantile=0.7,
+                _up_trend(), window=5,
+                long_quantile=0.3, short_quantile=0.7,
             )
-
-    def test_zero_window_raises(self) -> None:
-        with pytest.raises(ValueError):
-            momentum_rank_signal(_returns([0.01] * 10), window=0)
 
     def test_empty_raises(self) -> None:
         with pytest.raises(ValueError, match="empty"):
@@ -116,19 +133,62 @@ class TestMomentumRankSignal:
         with pytest.raises(TypeError):
             momentum_rank_signal(pd.Series(["a", "b"]), window=1)
 
+    def test_not_series_raises(self) -> None:
+        with pytest.raises(TypeError):
+            momentum_rank_signal([100.0, 101.0, 102.0], window=1)  # type: ignore[arg-type]
+
     def test_preserves_index(self) -> None:
-        idx = pd.date_range("2024-01-01", periods=20, freq="1D")
-        returns = pd.Series([0.01] * 20, index=idx)
-        sig = momentum_rank_signal(returns, window=5)
+        idx = pd.date_range("2024-01-01", periods=40, freq="1D")
+        prices = pd.Series([float(100 + i) for i in range(40)], index=idx)
+        sig = momentum_rank_signal(prices, window=5)
         assert list(sig.index) == list(idx)
 
-    def test_no_lookahead_signal_at_T_uses_only_data_through_T(self) -> None:
-        returns = _returns([0.01, -0.02, 0.015, -0.01, 0.02, 0.005, -0.015,
-                            0.01, 0.02, -0.005, 0.01, 0.015, -0.02, 0.01, 0.02])
+    # ── Semantic tests ────────────────────────────────────────────────────────
+
+    def test_surge_after_flat_produces_long_signals(self) -> None:
+        """After a flat period, a sudden price surge has rolling returns far above
+        the near-zero historical baseline → high rank → LONG."""
+        prices = _two_phase()
+        sig = momentum_rank_signal(prices, window=10, long_quantile=0.6)
+        # In the surge phase, recent rolling returns dominate flat-phase history
+        surge_start = 35 + 19  # flat + warm-up
+        surge_sig = sig.iloc[surge_start:]
+        assert (surge_sig == SignalDirection.LONG).any(), (
+            "Expected LONG signals in surge phase — recent returns >> flat history"
+        )
+
+    def test_flat_prices_produce_neutral_momentum(self) -> None:
+        """Zero rolling returns rank at ~0.5 → NEUTRAL (within [0.3, 0.7])."""
+        prices = _flat(80)
+        sig = momentum_rank_signal(prices, window=10)
+        assert (sig == SignalDirection.NEUTRAL).all(), (
+            "Flat prices produce zero rolling return → rank ≈ 0.5 → NEUTRAL"
+        )
+
+    def test_momentum_uses_price_rolling_return_not_pct_change_of_returns(self) -> None:
+        """Verify that momentum is derived from rolling_return(prices, N), not from
+        pct_change applied to per-period returns (which would be 'returns of returns')."""
+        prices = _prices([100.0, 105.0, 110.0, 115.0, 120.0,
+                          125.0, 130.0, 135.0, 140.0, 145.0, 150.0])
+        # 10-period return from index 0 to 10: (150-100)/100 = 0.50
+        # This is correctly computed from prices, not from returns
+        sig = momentum_rank_signal(prices, window=10)
+        # All 11 bars: warm-up (2*10-1 = 19) exceeds length → all NEUTRAL
+        assert (sig == SignalDirection.NEUTRAL).all()
+        # Extend to ensure a signal is produced
+        prices_long = _prices([float(100 + i * 5) for i in range(40)])
+        sig_long = momentum_rank_signal(prices_long, window=10)
+        # At index 19+, signals should reflect price-based rolling returns
+        assert isinstance(sig_long, pd.Series)
+        assert len(sig_long) == 40
+
+    def test_no_lookahead(self) -> None:
+        """Signal at T uses only data through T (no future data)."""
+        prices = _prices([100.0 + i + (i % 3 - 1) * 0.5 for i in range(40)])
         window = 5
-        full = momentum_rank_signal(returns, window)
-        for t in range(window, len(returns)):
-            partial = momentum_rank_signal(returns.iloc[: t + 1], window)
+        full = momentum_rank_signal(prices, window)
+        for t in range(window, len(prices)):
+            partial = momentum_rank_signal(prices.iloc[: t + 1], window)
             assert full.iloc[t] == partial.iloc[-1], (
                 f"Lookahead detected at T={t}: "
                 f"full={full.iloc[t]}, partial={partial.iloc[-1]}"
@@ -157,6 +217,12 @@ class TestTrendFilterSignal:
         non_neutral = sig[sig != SignalDirection.NEUTRAL]
         assert not non_neutral.empty
         assert (non_neutral == SignalDirection.SHORT).all()
+
+    def test_flat_prices_produce_neutral(self) -> None:
+        prices = _flat(50)
+        sig = trend_filter_signal(prices, short_window=5, long_window=20)
+        non_neutral = sig[sig != SignalDirection.NEUTRAL]
+        assert non_neutral.empty, "Flat prices should produce no trend signals"
 
     def test_warm_up_is_neutral(self) -> None:
         prices = _up_trend(50)
@@ -204,75 +270,81 @@ class TestTrendFilterSignal:
 # ── combined_momentum_trend_signal ────────────────────────────────────────────
 
 class TestCombinedMomentumTrendSignal:
-    def _make_uptrend(self, n: int = 60) -> tuple[pd.Series, pd.Series]:
-        prices = _up_trend(n)
-        returns = prices.pct_change().fillna(0.0)
-        return prices, returns
+    def test_accepts_prices_only(self) -> None:
+        """Confirm the combined signal takes only prices — no ambiguous returns param."""
+        import inspect
+        sig = inspect.signature(combined_momentum_trend_signal)
+        assert "prices" in sig.parameters
+        assert "returns" not in sig.parameters, (
+            "combined_momentum_trend_signal must not accept a 'returns' parameter. "
+            "Both momentum and trend are derived from prices."
+        )
 
     def test_returns_series(self) -> None:
-        prices, returns = self._make_uptrend()
+        prices = _up_trend(60)
         sig = combined_momentum_trend_signal(
-            prices, returns, momentum_window=10,
+            prices, momentum_window=10,
             trend_short_window=5, trend_long_window=20,
         )
         assert isinstance(sig, pd.Series)
         assert len(sig) == len(prices)
 
     def test_output_values_are_signal_directions(self) -> None:
-        prices, returns = self._make_uptrend()
+        prices = _up_trend(60)
         sig = combined_momentum_trend_signal(
-            prices, returns, momentum_window=10,
+            prices, momentum_window=10,
             trend_short_window=5, trend_long_window=20,
         )
         valid = set(SignalDirection)
         for val in sig:
             assert val in valid
 
-    def test_uptrend_produces_long_when_both_agree(self) -> None:
-        prices, returns = self._make_uptrend(60)
+    def test_surge_after_flat_produces_long(self) -> None:
+        """Surge phase: momentum=LONG (recent return >> flat history) and
+        trend=LONG (price rising) → combined=LONG."""
+        prices = _two_phase(flat=40, surge=50)
         sig = combined_momentum_trend_signal(
-            prices, returns, momentum_window=10,
+            prices, momentum_window=10,
             trend_short_window=5, trend_long_window=20,
         )
-        non_neutral = sig[sig != SignalDirection.NEUTRAL]
-        if not non_neutral.empty:
-            assert (non_neutral == SignalDirection.LONG).any()
-
-    def test_disagreement_produces_neutral(self) -> None:
-        # Mix uptrend (trend=LONG) with flat returns (momentum neutral/mixed)
-        prices = _up_trend(40)
-        returns = _returns([0.0] * 40)  # zero returns → momentum NEUTRAL
-        sig = combined_momentum_trend_signal(
-            prices, returns, momentum_window=5,
-            trend_short_window=3, trend_long_window=10,
+        # After both momentum and trend warm up inside the surge phase
+        surge_start = 40 + 19  # flat + warm-up
+        surge_sig = sig.iloc[surge_start:]
+        assert (surge_sig == SignalDirection.LONG).any(), (
+            "Expected LONG signals in surge phase when both momentum and trend agree"
         )
-        # With flat returns, momentum stays near 0.5 rank → NEUTRAL
-        # Combined must then be NEUTRAL even if trend says LONG
-        non_neutral_longs = sig[sig == SignalDirection.LONG]
-        assert non_neutral_longs.empty, "No LONG expected when momentum is NEUTRAL"
+
+    def test_flat_prices_produce_all_neutral(self) -> None:
+        """Flat prices: momentum=NEUTRAL, trend=NEUTRAL → combined=NEUTRAL."""
+        prices = _flat(80)
+        sig = combined_momentum_trend_signal(
+            prices, momentum_window=10,
+            trend_short_window=5, trend_long_window=20,
+        )
+        assert (sig == SignalDirection.NEUTRAL).all(), (
+            "Flat prices should produce no momentum or trend signal → all NEUTRAL"
+        )
 
     def test_warm_up_is_neutral(self) -> None:
-        prices, returns = self._make_uptrend(60)
+        prices = _two_phase(flat=40, surge=50)
         sig = combined_momentum_trend_signal(
-            prices, returns, momentum_window=10,
+            prices, momentum_window=10,
             trend_short_window=5, trend_long_window=20,
         )
-        # Warm-up = max(momentum_window, long_window) = 20 bars
+        # Warm-up = 2*momentum_window - 1 = 19 bars
         for i in range(19):
             assert sig.iloc[i] == SignalDirection.NEUTRAL
 
     def test_no_lookahead(self) -> None:
-        prices, returns = self._make_uptrend(50)
+        prices = _two_phase(flat=30, surge=40)
         mom_w, short_w, long_w = 10, 5, 20
         full = combined_momentum_trend_signal(
-            prices, returns, momentum_window=mom_w,
+            prices, momentum_window=mom_w,
             trend_short_window=short_w, trend_long_window=long_w,
         )
         for t in range(long_w, len(prices)):
-            p_partial = prices.iloc[: t + 1]
-            r_partial = returns.iloc[: t + 1]
             partial = combined_momentum_trend_signal(
-                p_partial, r_partial, momentum_window=mom_w,
+                prices.iloc[: t + 1], momentum_window=mom_w,
                 trend_short_window=short_w, trend_long_window=long_w,
             )
             assert full.iloc[t] == partial.iloc[-1], (

@@ -45,8 +45,20 @@ def log_return(prices: pd.Series) -> pd.Series:
     r_t = ln(p_t / p_{t-1})
 
     The first element is NaN. No lookahead.
+
+    Raises:
+        ValueError: If any price is zero or negative. log(0) is -inf and
+                    log of a negative number is undefined; both indicate
+                    corrupt or invalid price data.
     """
     _require_series(prices, "prices")
+    if (prices <= 0).any():
+        n_bad = int((prices <= 0).sum())
+        raise ValueError(
+            f"log_return requires strictly positive prices. "
+            f"Found {n_bad} non-positive value(s). "
+            f"Check the input for zero or negative prices."
+        )
     return np.log(prices / prices.shift(1))
 
 

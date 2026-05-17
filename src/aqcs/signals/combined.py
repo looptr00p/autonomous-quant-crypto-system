@@ -11,7 +11,6 @@ from aqcs.signals.types import SignalDirection
 
 def combined_momentum_trend_signal(
     prices: pd.Series,
-    returns: pd.Series,
     momentum_window: int,
     trend_short_window: int,
     trend_long_window: int,
@@ -21,30 +20,26 @@ def combined_momentum_trend_signal(
 ) -> pd.Series:
     """Generate a signal that requires both momentum and trend to agree.
 
+    Both component signals are derived from the same price series, avoiding
+    any ambiguity about whether returns or prices are expected.
+
     LONG only when momentum_rank_signal is LONG AND trend_filter_signal is LONG.
     SHORT only when both signals are SHORT.
     NEUTRAL in all other cases (disagreement, warm-up, or flat signals).
 
-    This conservative combination reduces noise and false signals.
-    No lookahead: each component signal respects its own lookahead constraints.
-
     Args:
-        prices: Series of prices (for trend computation).
-        returns: Series of per-period returns (for momentum computation).
-        momentum_window: Lookback window for rolling return in momentum signal.
+        prices: Series of asset prices used for both momentum and trend.
+        momentum_window: Lookback N for rolling N-period return in momentum.
         trend_short_window: Fast MA window for trend filter.
         trend_long_window: Slow MA window for trend filter.
         momentum_long_quantile: Rank threshold above which momentum is LONG.
         momentum_short_quantile: Rank threshold below which momentum is SHORT.
 
     Returns:
-        Series of SignalDirection values aligned to input index.
+        Series of SignalDirection values aligned to the input index.
     """
-    if prices.index is not returns.index and not prices.index.equals(returns.index):
-        raise ValueError("prices and returns must share the same index")
-
     mom = momentum_rank_signal(
-        returns,
+        prices,
         momentum_window,
         long_quantile=momentum_long_quantile,
         short_quantile=momentum_short_quantile,

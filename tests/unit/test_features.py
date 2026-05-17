@@ -94,6 +94,22 @@ class TestLogReturn:
         with pytest.raises(ValueError, match="empty"):
             log_return(pd.Series([], dtype=float))
 
+    def test_zero_price_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-positive"):
+            log_return(_prices([100.0, 0.0, 90.0]))
+
+    def test_negative_price_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-positive"):
+            log_return(_prices([100.0, -5.0, 90.0]))
+
+    def test_all_negative_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-positive"):
+            log_return(_prices([-100.0, -90.0, -80.0]))
+
+    def test_strictly_positive_prices_accepted(self) -> None:
+        r = log_return(_prices([0.001, 0.002, 0.003]))
+        assert not pd.isna(r.iloc[1])
+
     def test_no_lookahead(self) -> None:
         prices = _prices([100.0, 110.0, 120.0, 115.0, 125.0])
         full = log_return(prices)

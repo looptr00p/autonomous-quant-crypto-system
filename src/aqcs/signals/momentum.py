@@ -37,29 +37,35 @@ def _require_quantile(q: float, name: str) -> None:
 
 
 def momentum_rank_signal(
-    returns: pd.Series,
+    prices: pd.Series,
     window: int,
     *,
     long_quantile: float = 0.7,
     short_quantile: float = 0.3,
 ) -> pd.Series:
-    """Generate a time-series momentum signal from rolling return rankings.
+    """Generate a time-series momentum signal from rolling price-return rankings.
 
-    At each timestamp T, computes the percentile rank of the current rolling
-    return within the expanding history of rolling returns seen so far (0..T).
-    This avoids lookahead: the rank at T uses only data available at T.
+    Computes the N-period rolling return from prices (not from per-period
+    returns), then ranks each value within the expanding history of rolling
+    returns seen so far. Passing pre-computed per-period returns would produce
+    "returns of returns" — a semantic error this design avoids.
+
+    Rolling return at T: r_T = (price_T - price_{T-N}) / price_{T-N}
+
+    Warm-up: the first 2*window - 1 bars are always NEUTRAL — rolling_return
+    needs `window` bars before its first value, and the expanding rank then
+    needs `window` non-NaN rolling returns before producing a valid rank.
 
     Args:
-        returns: Series of per-period returns (not prices).
-        window: Lookback window for rolling return computation.
-        long_quantile: Ranks at or above this threshold → LONG.
-        short_quantile: Ranks at or below this threshold → SHORT.
+        prices: Series of asset prices (not per-period returns).
+        window: Lookback N for rolling N-period return. Must be a positive int.
+        long_quantile: Rank at or above this threshold → LONG.
+        short_quantile: Rank at or below this threshold → SHORT.
 
     Returns:
-        Series of SignalDirection values aligned to input index.
-        NaN periods (warm-up) are filled with NEUTRAL.
+        Series of SignalDirection values aligned to the input index.
     """
-    _require_series(returns, "returns")
+    _require_series(prices, "prices")
     _require_window(window)
     _require_quantile(long_quantile, "long_quantile")
     _require_quantile(short_quantile, "short_quantile")
@@ -69,12 +75,14 @@ def momentum_rank_signal(
             f"short_quantile ({short_quantile})"
         )
 
-    rolling = rolling_return(returns, window)
-    # Expanding percentile rank: rank of current value within history 0..t
-    # min_periods=window ensures we have a full window before ranking starts
+    # N-period rolling price return — causal, no future data
+    rolling = rolling_return(prices, window)
+
+    # Expanding percentile rank within all rolling returns seen up to T.
+    # min_periods=window: NaN until `window` non-NaN rolling returns exist.
     rank = rolling.expanding(min_periods=window).rank(pct=True)
 
-    result = pd.Series(SignalDirection.NEUTRAL, index=returns.index, dtype=object)
+    result = pd.Series(SignalDirection.NEUTRAL, index=prices.index, dtype=object)
     result[rank >= long_quantile] = SignalDirection.LONG
     result[rank <= short_quantile] = SignalDirection.SHORT
     return result
