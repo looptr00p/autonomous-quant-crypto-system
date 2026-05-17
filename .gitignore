@@ -58,3 +58,4 @@ Thumbs.db
 
 # Docker
 *.log
+.claude/
