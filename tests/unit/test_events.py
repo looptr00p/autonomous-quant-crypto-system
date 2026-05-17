@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from src.utils.events import DataEvent, EventCategory, EventSeverity, OversightEvent, SystemEvent
+from aqcs.utils.events import DataEvent, EventCategory, EventSeverity, OversightEvent, SystemEvent
 
 
 class TestBaseEvent:

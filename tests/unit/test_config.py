@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from src.utils.config import Settings, load_config
+from aqcs.utils.config import Settings, load_config
 
 
 class TestLoadConfig:

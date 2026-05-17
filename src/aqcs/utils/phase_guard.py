@@ -85,7 +85,7 @@ def assert_allowed(feature: Feature) -> None:
     phases fail closed rather than silently allowing all features.
 
     Usage:
-        from src.utils.phase_guard import Feature, assert_allowed
+        from aqcs.utils.phase_guard import Feature, assert_allowed
         assert_allowed(Feature.MACHINE_LEARNING)  # raises in Phase 1
     """
     _check_phase_known()

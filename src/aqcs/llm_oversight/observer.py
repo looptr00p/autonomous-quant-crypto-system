@@ -6,8 +6,8 @@ Its sole purpose is to log and document what the quant components are doing.
 
 from __future__ import annotations
 
-from src.utils.events import OversightEvent
-from src.utils.logging import get_logger
+from aqcs.utils.events import OversightEvent
+from aqcs.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -11,25 +11,25 @@ from pathlib import Path
 import pytest
 
 EXPECTED_PACKAGES = [
-    "src/data",
-    "src/features",
-    "src/signals",
-    "src/portfolio",
-    "src/risk",
-    "src/execution",
-    "src/backtesting",
-    "src/monitoring",
-    "src/llm_oversight",
-    "src/utils",
+    "src/aqcs/data",
+    "src/aqcs/features",
+    "src/aqcs/signals",
+    "src/aqcs/portfolio",
+    "src/aqcs/risk",
+    "src/aqcs/execution",
+    "src/aqcs/backtesting",
+    "src/aqcs/monitoring",
+    "src/aqcs/llm_oversight",
+    "src/aqcs/utils",
 ]
 
 EXPECTED_FILES = [
-    "src/utils/phase_guard.py",
-    "src/utils/events.py",
-    "src/utils/config.py",
-    "src/utils/logging.py",
-    "src/data/ohlcv.py",
-    "src/llm_oversight/observer.py",
+    "src/aqcs/utils/phase_guard.py",
+    "src/aqcs/utils/events.py",
+    "src/aqcs/utils/config.py",
+    "src/aqcs/utils/logging.py",
+    "src/aqcs/data/ohlcv.py",
+    "src/aqcs/llm_oversight/observer.py",
     "docs/architecture/system-architecture-v1.md",
     "docs/standards/project-standards.md",
     "docs/standards/phase-constraints.md",
@@ -51,7 +51,7 @@ def test_package_directory_exists(pkg: str) -> None:
 def test_package_has_init(pkg: str) -> None:
     init = Path(pkg) / "__init__.py"
     assert init.exists(), (
-        f"'{init}' is missing. Every src/ package must have an __init__.py."
+        f"'{init}' is missing. Every aqcs/ package must have an __init__.py."
     )
 
 

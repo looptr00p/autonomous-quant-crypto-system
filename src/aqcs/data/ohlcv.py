@@ -13,8 +13,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from src.utils.config import get_settings, load_config
-from src.utils.logging import configure_logging, get_logger
+from aqcs.utils.config import get_settings, load_config
+from aqcs.utils.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
 

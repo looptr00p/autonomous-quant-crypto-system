@@ -39,7 +39,7 @@ dev = [
 ]
 
 [project.scripts]
-aqcs-download = "src.data.ohlcv:main"
+aqcs-download = "aqcs.data.ohlcv:main"
 
 [tool.ruff]
 target-version = "py311"
@@ -71,8 +71,8 @@ exclude = ["notebooks/", "experiments/", "tests/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=src --cov-report=term-missing --cov-report=html"
+addopts = "-v --cov=src/aqcs --cov-report=term-missing --cov-report=html"
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["src/aqcs"]

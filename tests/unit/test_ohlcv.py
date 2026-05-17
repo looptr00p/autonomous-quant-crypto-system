@@ -10,7 +10,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from src.data.ohlcv import OHLCV_SCHEMA, _build_exchange, fetch_ohlcv, save_parquet
+from aqcs.data.ohlcv import OHLCV_SCHEMA, _build_exchange, fetch_ohlcv, save_parquet
 
 
 def _make_candles(n: int = 5) -> list[list]:
@@ -66,7 +66,6 @@ class TestFetchOHLCV:
 
     def test_no_duplicates(self) -> None:
         candles = _make_candles(3)
-        # Inject duplicate
         candles_with_dup = candles + [candles[0]]
         ex = self._mock_exchange(candles_with_dup)
         since = datetime(2023, 11, 14, tzinfo=timezone.utc)
@@ -127,15 +126,15 @@ class TestBuildExchange:
 
     def test_succeeds_in_phase1_without_mocking(self) -> None:
         """_build_exchange must not raise in Phase 1 — the spot factory is always allowed."""
-        with patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
-             patch("src.data.ohlcv.get_settings") as mock_settings:
+        with patch("aqcs.data.ohlcv.ccxt.binance") as mock_binance, \
+             patch("aqcs.data.ohlcv.get_settings") as mock_settings:
             mock_settings.return_value.binance_api_key = ""
             mock_binance.return_value = MagicMock()
-            _build_exchange(sandbox=True)  # must not raise PhaseConstraintError or anything else
+            _build_exchange(sandbox=True)  # must not raise
 
     def test_default_type_is_spot(self) -> None:
-        with patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
-             patch("src.data.ohlcv.get_settings") as mock_settings:
+        with patch("aqcs.data.ohlcv.ccxt.binance") as mock_binance, \
+             patch("aqcs.data.ohlcv.get_settings") as mock_settings:
             mock_settings.return_value.binance_api_key = ""
             mock_binance.return_value = MagicMock()
 
@@ -147,8 +146,8 @@ class TestBuildExchange:
             )
 
     def test_sandbox_mode_set_when_requested(self) -> None:
-        with patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
-             patch("src.data.ohlcv.get_settings") as mock_settings:
+        with patch("aqcs.data.ohlcv.ccxt.binance") as mock_binance, \
+             patch("aqcs.data.ohlcv.get_settings") as mock_settings:
             mock_settings.return_value.binance_api_key = ""
             mock_ex = MagicMock()
             mock_binance.return_value = mock_ex

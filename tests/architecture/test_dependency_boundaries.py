@@ -1,6 +1,6 @@
 """Enforce the dependency DAG defined in system-architecture-v1.md §5.
 
-Each src/ package may only import from the packages listed in ALLOWED.
+Each aqcs/ package may only import from the packages listed in ALLOWED.
 Any import that violates the DAG is a CI failure.
 
 This test uses stdlib ast only — no runtime imports of the modules under test.
@@ -16,63 +16,63 @@ import pytest
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Canonical DAG — source of truth: docs/architecture/system-architecture-v1.md §5
-# Key: owner package.  Value: set of src.* packages it is allowed to import.
+# Key: owner package.  Value: set of aqcs.* packages it is allowed to import.
 ALLOWED: dict[str, set[str]] = {
-    "src.utils":         set(),
-    "src.data":          {"src.utils"},
-    "src.features":      {"src.data", "src.utils"},
-    "src.signals":       {"src.features", "src.utils"},
-    "src.portfolio":     {"src.signals", "src.utils"},
-    "src.risk":          {"src.portfolio", "src.utils"},
-    "src.execution":     {"src.risk", "src.utils"},
-    "src.backtesting":   {
-        "src.data", "src.features", "src.signals",
-        "src.portfolio", "src.risk", "src.execution", "src.utils",
+    "aqcs.utils":         set(),
+    "aqcs.data":          {"aqcs.utils"},
+    "aqcs.features":      {"aqcs.data", "aqcs.utils"},
+    "aqcs.signals":       {"aqcs.features", "aqcs.utils"},
+    "aqcs.portfolio":     {"aqcs.signals", "aqcs.utils"},
+    "aqcs.risk":          {"aqcs.portfolio", "aqcs.utils"},
+    "aqcs.execution":     {"aqcs.risk", "aqcs.utils"},
+    "aqcs.backtesting":   {
+        "aqcs.data", "aqcs.features", "aqcs.signals",
+        "aqcs.portfolio", "aqcs.risk", "aqcs.execution", "aqcs.utils",
     },
-    "src.monitoring":    {"src.data", "src.utils"},
-    "src.llm_oversight": {"src.utils"},
+    "aqcs.monitoring":    {"aqcs.data", "aqcs.utils"},
+    "aqcs.llm_oversight": {"aqcs.utils"},
 }
 
-_SRC_FILES = sorted((_PROJECT_ROOT / "src").rglob("*.py"))
+_SRC_FILES = sorted((_PROJECT_ROOT / "src" / "aqcs").rglob("*.py"))
 
 
-def extract_src_imports(path: Path) -> list[str]:
-    """Return all src.* top-level package names imported by a Python file."""
+def extract_aqcs_imports(path: Path) -> list[str]:
+    """Return all aqcs.* top-level package names imported by a Python file."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     packages: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module:
-            if node.module.startswith("src."):
+            if node.module.startswith("aqcs."):
                 pkg = ".".join(node.module.split(".")[:2])
                 packages.append(pkg)
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name.startswith("src."):
+                if alias.name.startswith("aqcs."):
                     pkg = ".".join(alias.name.split(".")[:2])
                     packages.append(pkg)
     return packages
 
 
 def owner_package(path: Path) -> str | None:
-    """Return 'src.signals' for any file under src/signals/, etc."""
+    """Return 'aqcs.signals' for any file under src/aqcs/signals/, etc."""
     parts = list(path.parts)
-    if "src" not in parts:
+    if "aqcs" not in parts:
         return None
-    idx = parts.index("src")
+    idx = parts.index("aqcs")
     if len(parts) <= idx + 1:
         return None
-    return f"src.{parts[idx + 1]}"
+    return f"aqcs.{parts[idx + 1]}"
 
 
 @pytest.mark.parametrize("src_file", _SRC_FILES)
 def test_import_boundary(src_file: Path) -> None:
     owner = owner_package(src_file)
     if owner not in ALLOWED:
-        return  # src/__init__.py or other top-level file — not a tracked subpackage
+        return  # src/aqcs/__init__.py or other top-level file
 
     allowed = ALLOWED[owner]
     violations = [
-        imp for imp in extract_src_imports(src_file)
+        imp for imp in extract_aqcs_imports(src_file)
         if imp not in allowed and imp != owner
     ]
 

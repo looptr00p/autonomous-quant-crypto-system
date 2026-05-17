@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings
 
 load_dotenv()
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:

@@ -1,8 +1,8 @@
-"""Enforce library-level import restrictions across src/.
+"""Enforce library-level import restrictions across src/aqcs/.
 
 Rules:
 - ML/RL libraries are globally forbidden in all phases until ADR approval.
-- ccxt may only appear in src/data/ (exchange communication is data-layer-only).
+- ccxt may only appear in aqcs/data/ (exchange communication is data-layer-only).
 - Websocket/async streaming libraries are forbidden in Phase 1.
 
 This test uses stdlib ast only — no runtime imports of the modules under test.
@@ -17,7 +17,7 @@ import pytest
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-# Libraries that must never appear anywhere in src/ without an ADR
+# Libraries that must never appear anywhere in src/aqcs/ without an ADR
 FORBIDDEN_GLOBAL: list[str] = [
     "torch",
     "sklearn",
@@ -36,10 +36,10 @@ FORBIDDEN_PHASE1: list[str] = [
     "websockets",
     "websocket",
     "aiohttp",
-    "asyncio",  # asyncio use is a signal of streaming architecture — flag it
+    "asyncio",
 ]
 
-_SRC_FILES = sorted((_PROJECT_ROOT / "src").rglob("*.py"))
+_SRC_FILES = sorted((_PROJECT_ROOT / "src" / "aqcs").rglob("*.py"))
 
 
 def extract_all_top_imports(path: Path) -> list[str]:
@@ -58,14 +58,14 @@ def extract_all_top_imports(path: Path) -> list[str]:
 
 
 def owner_package(path: Path) -> str | None:
-    """Return 'src.data' for any file under src/data/, etc."""
+    """Return 'aqcs.data' for any file under src/aqcs/data/, etc."""
     parts = list(path.parts)
-    if "src" not in parts:
+    if "aqcs" not in parts:
         return None
-    idx = parts.index("src")
+    idx = parts.index("aqcs")
     if len(parts) <= idx + 1:
         return None
-    return f"src.{parts[idx + 1]}"
+    return f"aqcs.{parts[idx + 1]}"
 
 
 @pytest.mark.parametrize("src_file", _SRC_FILES)
@@ -86,8 +86,8 @@ def test_ccxt_only_in_data_layer(src_file: Path) -> None:
     if "ccxt" not in libs:
         return
     owner = owner_package(src_file)
-    assert owner == "src.data", (
-        f"\n{src_file}: 'ccxt' imported outside src/data/ (owner: '{owner}').\n"
+    assert owner == "aqcs.data", (
+        f"\n{src_file}: 'ccxt' imported outside aqcs/data/ (owner: '{owner}').\n"
         "Only the Data Layer may communicate with exchanges.\n"
         "See docs/architecture/system-architecture-v1.md §4.1 and §5."
     )

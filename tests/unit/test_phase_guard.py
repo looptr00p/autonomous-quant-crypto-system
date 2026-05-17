@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import src.utils.phase_guard as guard
-from src.utils.phase_guard import Feature, PhaseConstraintError, assert_allowed
+import aqcs.utils.phase_guard as guard
+from aqcs.utils.phase_guard import Feature, PhaseConstraintError, assert_allowed
 
 
 class TestPhase1Prohibitions:
@@ -110,11 +110,11 @@ class TestPhaseProgression:
 
     def test_phase_2_allows_websocket_streaming(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 2)
-        assert_allowed(Feature.WEBSOCKET_STREAMING)  # must not raise
+        assert_allowed(Feature.WEBSOCKET_STREAMING)
 
     def test_phase_2_allows_machine_learning(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 2)
-        assert_allowed(Feature.MACHINE_LEARNING)  # must not raise
+        assert_allowed(Feature.MACHINE_LEARNING)
 
     def test_phase_2_still_prohibits_live_trading(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 2)
@@ -128,7 +128,7 @@ class TestPhaseProgression:
 
     def test_phase_3_allows_paper_trading(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 3)
-        assert_allowed(Feature.PAPER_TRADING)  # must not raise
+        assert_allowed(Feature.PAPER_TRADING)
 
     def test_phase_3_still_prohibits_live_trading(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 3)
@@ -142,7 +142,7 @@ class TestPhaseProgression:
 
     def test_phase_4_allows_live_trading(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 4)
-        assert_allowed(Feature.LIVE_TRADING)  # must not raise
+        assert_allowed(Feature.LIVE_TRADING)
 
     def test_phase_4_still_prohibits_autonomous_agents(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 4)

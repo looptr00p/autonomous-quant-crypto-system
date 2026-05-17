@@ -1,0 +1,790 @@
+BITÁCORA DEL PROYECTO
+Registro #0001 — Manifiesto Fundacional del Proyecto
+
+Fecha: 2026-05-16
+Autor: STRATEGIC QUANT COMMITTEE + Fundador del Proyecto
+Tipo: Manifiesto / Dirección Estratégica / Documento Fundacional
+
+Nombre Temporal del Proyecto
+
+Pendiente de definición.
+
+El proyecto será referido temporalmente como:
+
+“Autonomous Quant Crypto System” (AQCS)
+
+Este nombre es provisional y podrá modificarse posteriormente.
+
+Propósito del Proyecto
+
+Diseñar, construir y evolucionar un sistema cuantitativo autónomo de trading para crypto spot que sea:
+
+robusto,
+estadísticamente válido,
+operacionalmente sostenible,
+escalable,
+y resistente a cambios de régimen de mercado.
+
+El objetivo NO es construir:
+
+un bot “mágico”,
+un sistema hype-driven basado en IA,
+ni una arquitectura innecesariamente compleja.
+
+El objetivo es construir:
+
+un sistema sobreviviente y evolutivo con fundamentos cuantitativos sólidos.
+
+Filosofía Central
+
+El proyecto adopta los siguientes principios:
+
+1. Robustez sobre sofisticación
+
+Se priorizarán:
+
+estrategias simples,
+explicables,
+auditables,
+y resistentes al overfitting.
+
+La complejidad solo será introducida si demuestra mejora real y verificable.
+
+2. Riesgo antes que retorno
+
+La prioridad principal del sistema será:
+
+supervivencia,
+control de drawdown,
+estabilidad operacional,
+preservación de capital.
+
+La maximización de retorno NO tendrá prioridad sobre la supervivencia.
+
+3. Evidencia antes que narrativa
+
+Toda hipótesis deberá validarse mediante:
+
+backtesting riguroso,
+walk-forward analysis,
+pruebas out-of-sample,
+Monte Carlo,
+stress testing.
+
+No se aceptarán afirmaciones basadas únicamente en:
+
+intuición,
+marketing,
+redes sociales,
+o resultados aislados.
+4. Modularidad extrema
+
+El sistema deberá diseñarse como componentes desacoplados:
+
+Data Layer
+Feature Engine
+Signal Engine
+Portfolio Construction
+Risk Engine
+Execution Engine
+Monitoring & Logging
+
+Esto permitirá:
+
+escalabilidad,
+reemplazo de componentes,
+debugging eficiente,
+auditoría técnica.
+5. La IA no será el núcleo inicial
+
+El proyecto NO comenzará utilizando:
+
+LLMs para tomar trades,
+Reinforcement Learning,
+Deep Learning predictivo,
+agentes autónomos no supervisados.
+
+La IA solo será considerada posteriormente si demuestra:
+
+valor incremental real,
+robustez estadística,
+y superioridad frente a baselines simples.
+Mercado Objetivo
+Mercado Inicial
+
+Crypto Spot.
+
+Justificación Estratégica
+
+Crypto spot ofrece:
+
+Ventajas
+APIs accesibles,
+operación 24/7,
+alta volatilidad,
+facilidad de automatización,
+capital inicial flexible,
+menor fricción operacional.
+Riesgos
+alta correlación,
+manipulación,
+cambios violentos de régimen,
+ruido extremo,
+falsa liquidez.
+
+El sistema deberá diseñarse específicamente considerando estas características.
+
+Dirección Estratégica Inicial
+Estrategia Base Seleccionada
+Momentum + Trend Following Multi-Asset
+
+Timeframe inicial:
+
+Daily (preferencia inicial)
+4H (posible expansión futura)
+Hipótesis de Edge Inicial
+
+El proyecto parte de la hipótesis de que:
+
+activos crypto con momentum persistente y estructura de tendencia favorable tienden a continuar superando a activos débiles durante ciertos regímenes de mercado.
+
+Esta hipótesis deberá validarse empíricamente.
+
+Universo Inicial de Activos
+
+El universo inicial estará limitado a activos líquidos de alta capitalización.
+
+Candidatos iniciales:
+BTC
+ETH
+SOL
+BNB
+XRP
+DOGE
+LTC
+ADA
+
+Se evitarán inicialmente:
+
+microcaps,
+memecoins ilíquidas,
+activos con spreads elevados,
+activos manipulables.
+Componentes Iniciales de la Estrategia
+Señales
+Momentum relativo
+Trend filters
+Volatility filters
+Portfolio Construction
+Ranking por momentum
+Selección Top-N
+Equal weight o inverse volatility weighting
+Gestión de Riesgo
+Position sizing conservador
+Exposure caps
+Drawdown kill switch
+Stablecoin fallback
+Liquidity filters
+Restricciones Estratégicas
+
+El proyecto evitará inicialmente:
+
+Estrategias
+HFT
+scalping
+martingale
+grid systems agresivos
+market making complejo
+IA / ML
+Reinforcement Learning
+LSTM/Transformers predictivos
+optimización excesiva de hiperparámetros
+señales no interpretables
+Infraestructura
+microservicios prematuros
+Kubernetes
+complejidad operacional innecesaria
+Stack Tecnológico Inicial
+Lenguaje
+
+Python.
+
+Librerías Principales
+pandas
+numpy
+ccxt
+vectorbt
+Base de Datos
+
+PostgreSQL.
+
+Exchange Inicial
+
+Probablemente Binance Spot (pendiente validación final).
+
+Principios de Validación
+
+Toda estrategia deberá pasar por:
+
+Validaciones obligatorias
+backtesting realista,
+fees/slippage,
+out-of-sample,
+walk-forward,
+Monte Carlo,
+stress testing,
+validación multi-régimen.
+Métricas Obligatorias
+
+El proyecto priorizará:
+
+Sharpe
+Sortino
+Max Drawdown
+Calmar
+Profit Factor
+Turnover
+Exposure
+Tail Risk
+Recovery Time
+
+El CAGR NO será suficiente para validar estrategias.
+
+Roadmap Inicial
+Fase 1 — Research Infrastructure
+
+Construcción de:
+
+data ingestion,
+backtesting framework,
+métricas,
+logging.
+Fase 2 — Baseline Strategy
+
+Implementación de:
+
+momentum ranking,
+trend filters,
+portfolio construction.
+Fase 3 — Validation
+
+Implementación de:
+
+walk-forward,
+Monte Carlo,
+stress testing.
+Fase 4 — Paper Trading
+
+Operación simulada en tiempo real.
+
+Fase 5 — Capital Deployment
+
+Despliegue gradual con capital pequeño.
+
+Filosofía Operacional
+
+El sistema debe ser diseñado para:
+
+Sobrevivir primero.
+Escalar después.
+
+El objetivo inicial NO es maximizar ganancias.
+
+El objetivo inicial es:
+
+demostrar robustez,
+estabilidad,
+repetibilidad,
+y disciplina cuantitativa.
+Regla Fundamental del Proyecto
+
+“Toda complejidad debe justificar su existencia mediante evidencia.”
+
+Estado Actual del Proyecto
+Estado
+
+Fase de definición estratégica y arquitectura conceptual.
+
+Próximo objetivo prioritario
+
+Diseñar:
+
+arquitectura técnica completa,
+estructura de la bitácora,
+framework de research/backtesting,
+esquema inicial de datos y señales.
+Fin del Registro #0001
+
+Registro #0002 — Decisión Estratégica de Arquitectura
+
+Fecha: 2026-05-16
+Autor: STRATEGIC QUANT COMMITTEE + Fundador del Proyecto
+Tipo: Decisión Arquitectónica / Dirección Estratégica
+
+Decisión
+
+El proyecto adopta oficialmente una arquitectura híbrida:
+
+Quant Core + LLM Oversight
+Definición
+Quant Core
+
+Responsable de:
+
+Ingesta de datos.
+Cálculo de features.
+Generación de señales.
+Construcción de portafolio.
+Sizing.
+Risk management.
+Ejecución simulada o real.
+
+Debe ser:
+
+determinístico,
+auditable,
+testeable,
+reproducible.
+LLM Oversight
+
+Responsable de:
+
+Monitoreo.
+Explicación de decisiones.
+Auditoría de anomalías.
+Revisión de riesgo.
+Generación de hipótesis.
+Documentación automática.
+Apoyo en research.
+
+No tendrá permiso inicial para ejecutar trades directamente.
+
+Restricción Crítica
+
+El LLM no será fuente primaria de alpha en la V1.
+
+Toda decisión de trade debe poder explicarse por reglas cuantitativas verificables.
+
+Razonamiento
+
+Esta arquitectura reduce el riesgo de:
+
+alucinaciones,
+decisiones no reproducibles,
+sobreajuste narrativo,
+comportamiento emergente,
+reward hacking,
+falta de trazabilidad.
+Estrategia Base
+
+Se mantiene como estrategia inicial:
+
+Momentum + Trend Following Multi-Asset
+
+Mercado:
+
+Crypto Spot
+
+Timeframes:
+
+Daily como base robusta.
+15m/4H solo como laboratorio posterior o estrategia separada.
+Rol Correcto del LLM
+
+El LLM podrá actuar como:
+
+Research Analyst.
+Risk Reviewer.
+Strategy Auditor.
+Documentation Agent.
+Monitoring Agent.
+Incident Explainer.
+Experiment Planner.
+Rol Prohibido en V1
+
+El LLM no podrá:
+
+abrir/cerrar posiciones directamente,
+modificar riesgo sin reglas,
+inventar señales no validadas,
+cambiar parámetros en vivo,
+operar por intuición,
+tomar decisiones no auditables.
+Recommended Strategic Direction
+
+El proyecto debe avanzar en este orden:
+
+Bitácora formal.
+Arquitectura técnica.
+Quant Core mínimo.
+Backtesting.
+Paper trading.
+LLM Oversight pasivo.
+LLM Oversight con permisos limitados.
+Producción con capital pequeño.
+What Should Be Avoided
+
+Evitar:
+
+“agentes traders” autónomos desde el inicio.
+RL prematuro.
+optimización agresiva.
+LLM como decisor final.
+15m como núcleo principal sin evidencia.
+complejidad antes de validación.
+Highest ROI Improvements
+
+Prioridad inmediata:
+
+Diseñar arquitectura modular.
+Definir eventos/logs que el LLM podrá observar.
+Definir límites de decisión del LLM.
+Crear esquema de bitácora.
+Construir baseline cuantitativo.
+Roadmap
+Fase 1 — Foundation
+Bitácora.
+Arquitectura.
+Repositorio.
+Estándares de logging.
+Fase 2 — Quant Core
+Data ingestion.
+Feature engine.
+Signal engine.
+Portfolio engine.
+Risk engine.
+Fase 3 — Research
+Backtesting.
+Walk-forward.
+Stress tests.
+Fase 4 — Paper Trading
+Trading simulado.
+Logs completos.
+Comparación live vs backtest.
+Fase 5 — LLM Oversight
+Agente observador.
+Agente auditor.
+Agente documental.
+Agente de riesgo.
+Fase 6 — Controlled Autonomy
+Permisos limitados.
+No ejecución directa.
+Solo recomendaciones o reducción de exposición bajo reglas.
+Final Verdict
+
+Esta es una decisión sana y profesional.
+
+Quant Core + LLM Oversight
+
+maximiza aprendizaje y reduce riesgo.
+
+Es una arquitectura mucho más defendible que intentar construir un trader autónomo basado directamente en LLM.
+
+Registro #0003 — Decisión de Gestión Documental
+
+Fecha: 2026-05-16
+Autor: STRATEGIC QUANT COMMITTEE + Fundador del Proyecto
+Tipo: Decisión Operacional / Knowledge Management
+
+Decisión
+
+El proyecto usará una bitácora estructurada con trazabilidad completa.
+
+Fuente de verdad recomendada
+
+GitHub en archivos Markdown.
+
+Capa colaborativa recomendada
+
+Notion como interfaz de lectura, búsqueda y coordinación.
+
+Regla
+
+Toda decisión importante debe registrarse con:
+
+fecha,
+autor,
+tipo,
+contexto,
+decisión,
+justificación,
+riesgos,
+próximos pasos.
+Final Verdict
+
+Sí: integremos Notion, pero no como núcleo único.
+
+La arquitectura más robusta es:
+
+GitHub-first, Notion-synced.
+
+Recommended Strategic Direction
+Los próximos pasos correctos son:
+FASE 1 — Foundation Layer
+Objetivo:
+
+crear una base profesional mínima.
+
+Paso 1 — Crear repositorio principal
+Estructura recomendada
+aqcs/
+│
+├── docs/
+│   ├── bitacora/
+│   ├── architecture/
+│   ├── research/
+│   └── decisions/
+│
+├── data/
+│
+├── src/
+│   ├── data/
+│   ├── features/
+│   ├── signals/
+│   ├── portfolio/
+│   ├── risk/
+│   ├── execution/
+│   ├── backtesting/
+│   ├── monitoring/
+│   └── llm_oversight/
+│
+├── tests/
+│
+├── notebooks/
+│
+├── configs/
+│
+├── experiments/
+│
+└── logs/
+Paso 2 — Definir estándares
+
+Necesitan reglas desde YA.
+
+Naming
+Logging
+Configs
+IDs
+Experiment tracking
+Versionado
+Paso 3 — Diseñar arquitectura formal
+
+NO código todavía.
+
+Documento:
+
+componentes,
+responsabilidades,
+interfaces,
+flujo de datos.
+Paso 4 — Definir eventos del sistema
+
+Muy importante para LLM Oversight.
+
+Ejemplo:
+
+{
+  "event_type": "signal_generated",
+  "timestamp": "...",
+  "asset": "BTCUSDT",
+  "signal": "LONG",
+  "confidence": 0.71,
+  "features": {...}
+}
+
+El LLM observará eventos.
+
+NO el mercado directamente.
+
+FASE 2 — Data Layer
+Objetivo:
+
+pipeline limpio y reproducible.
+
+Paso 5 — Ingesta de datos
+
+Primero:
+
+Binance Spot
+OHLCV Daily
+
+NO websocket todavía.
+
+Datos mínimos
+open
+high
+low
+close
+volume
+Guardar en PostgreSQL
+
+O incluso:
+
+parquet primero.
+
+Parquet puede ser mejor inicialmente:
+
+rápido,
+simple,
+barato,
+reproducible.
+Paso 6 — Validación de datos
+
+Crítico.
+
+Necesitan detectar:
+
+gaps,
+duplicates,
+timezone issues,
+malformed candles.
+FASE 3 — Research Engine
+Paso 7 — Backtesting framework
+
+Mi recomendación:
+
+vectorbt
+
+Porque:
+
+rápido,
+simple,
+research-friendly.
+Paso 8 — Baseline strategy mínima
+
+NO optimizar.
+
+Solo:
+
+Momentum ranking
+Trend filter
+Equal weight
+Ejemplo conceptual
+Top 3 assets por retorno 30D
+Solo si precio > EMA100
+Rebalance diario
+
+Simple.
+
+Paso 9 — Métricas institucionales
+
+Construyan desde YA:
+
+Sharpe
+Sortino
+Max DD
+Exposure
+Turnover
+Trade stats
+Rolling metrics
+FASE 4 — Validation Layer
+Paso 10 — Walk-forward
+
+Obligatorio.
+
+Paso 11 — Monte Carlo
+
+Muy importante.
+
+Paso 12 — Stress tests
+
+Ejemplo:
+
+crash 2022
+bull 2021
+sideways
+FASE 5 — LLM Oversight
+
+SOLO después.
+
+Paso 13 — Agente documental
+
+Primer agente recomendado.
+
+Funciones:
+
+resumir sesiones,
+generar bitácora,
+etiquetar experimentos.
+Paso 14 — Agente auditor
+
+Detectar:
+
+anomalías,
+métricas sospechosas,
+overfitting.
+Paso 15 — Agente risk reviewer
+
+Analizar:
+
+exposición,
+drawdown,
+correlaciones.
+What Should Be Avoided
+NO construir aún:
+Frontend complejo
+
+Innecesario.
+
+Dashboard sofisticado
+
+Logs primero.
+
+Multi-agent orchestration avanzada
+
+Prematuro.
+
+Kubernetes
+
+No.
+
+Deep learning
+
+No.
+
+RL
+
+No.
+
+Streaming infra
+
+No todavía.
+
+Highest ROI Improvements
+
+Lo que más valor dará:
+
+1. Excelente logging
+2. Excelente bitácora
+3. Reproducibilidad
+4. Validación estadística
+5. Research pipeline limpio
+Recomendación Operacional Importante
+Claude Code/OpenCode deben operar bajo prompts estrictos
+
+Ejemplo:
+
+Nunca agregues complejidad innecesaria.
+Prefiere simplicidad.
+Todo módulo debe ser desacoplado.
+Toda estrategia debe ser deterministicamente reproducible.
+No introducir ML sin aprobación explícita.
+Suggested Immediate Deliverables
+
+Tus próximos entregables reales deberían ser:
+
+Semana 1
+1. Repo inicial
+2. Bitácora
+3. Arquitectura formal
+4. Configuración entorno
+5. Pipeline OHLCV
+Semana 2
+6. Backtester
+7. Baseline momentum strategy
+8. Métricas
+9. Primeros gráficos
+Semana 3
+10. Walk-forward
+11. Stress tests
+12. Research notebook formal
