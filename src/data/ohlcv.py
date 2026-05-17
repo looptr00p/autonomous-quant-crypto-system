@@ -15,6 +15,7 @@ import pyarrow.parquet as pq
 
 from src.utils.config import get_settings, load_config
 from src.utils.logging import configure_logging, get_logger
+from src.utils.phase_guard import Feature, assert_allowed
 
 logger = get_logger(__name__)
 
@@ -39,7 +40,8 @@ OHLCV_SCHEMA = pa.schema(
 # ── Exchange factory ──────────────────────────────────────────────────────────
 
 def _build_exchange(sandbox: bool = True) -> ccxt.Exchange:
-    """Build a read-only ccxt Binance instance."""
+    """Build a read-only ccxt Binance Spot instance."""
+    assert_allowed(Feature.FUTURES)  # Phase 1 is spot-only; this raises if futures is active
     settings = get_settings()
     params: dict[str, Any] = {
         "enableRateLimit": True,
@@ -121,13 +123,15 @@ def fetch_ohlcv(
 # ── Storage ───────────────────────────────────────────────────────────────────
 
 def save_parquet(df: pd.DataFrame, output_dir: Path, symbol: str, timeframe: str) -> Path:
-    """Write DataFrame to a partitioned Parquet file."""
+    """Write DataFrame to Parquet using tmp-then-rename to prevent partial writes."""
     safe_symbol = symbol.replace("/", "_")
     dest = output_dir / f"{safe_symbol}_{timeframe}.parquet"
+    tmp = dest.with_suffix(".tmp.parquet")
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     table = pa.Table.from_pandas(df, schema=OHLCV_SCHEMA, preserve_index=False)
-    pq.write_table(table, dest, compression="snappy")
+    pq.write_table(table, tmp, compression="snappy")
+    tmp.rename(dest)
 
     logger.info("parquet_saved", path=str(dest), rows=len(df))
     return dest

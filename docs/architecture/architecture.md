@@ -1,8 +1,15 @@
 # AQCS Architecture — Phase 1: Foundation Layer
 
+> **DEPRECATED** — This document has been superseded by
+> [`system-architecture-v1.md`](system-architecture-v1.md), which is the canonical
+> architecture reference. This file is retained for historical context only.
+> Do not use it as a source of truth. The dependency rule for `src/portfolio/`
+> in §8 of this document conflicts with `system-architecture-v1.md §5` —
+> the latter takes precedence.
+
 **Version:** 0.1.0  
 **Date:** 2026-05-16  
-**Status:** Active
+**Status:** Deprecated
 
 ---
 

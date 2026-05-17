@@ -1,5 +1,11 @@
 # AQCS Engineering Standards
 
+> **DEPRECATED** — This document has been superseded by
+> [`project-standards.md`](project-standards.md), which is the canonical
+> standards reference. This file is retained for historical context only.
+> Where any item in this document conflicts with `project-standards.md`,
+> `project-standards.md` takes precedence unconditionally.
+
 **Version:** 0.1.0  
 **Date:** 2026-05-16
 

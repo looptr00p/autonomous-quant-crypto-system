@@ -6,14 +6,10 @@ Its sole purpose is to log and document what the quant components are doing.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from src.utils.events import OversightEvent
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-_BITACORA_DIR = Path("docs/bitacora")
 
 
 def observe(event: OversightEvent) -> None:

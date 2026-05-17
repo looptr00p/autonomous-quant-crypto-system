@@ -70,15 +70,26 @@ _PROHIBITED: dict[int, frozenset[Feature]] = {
 }
 
 
+def _check_phase_known() -> None:
+    if CURRENT_PHASE not in _PROHIBITED:
+        raise PhaseConstraintError(
+            f"Unknown phase '{CURRENT_PHASE}'. Valid phases are {sorted(_PROHIBITED.keys())}. "
+            f"See docs/standards/phase-constraints.md."
+        )
+
+
 def assert_allowed(feature: Feature) -> None:
     """Raise PhaseConstraintError if feature is prohibited in CURRENT_PHASE.
+
+    Also raises if CURRENT_PHASE is not a recognised phase number — unknown
+    phases fail closed rather than silently allowing all features.
 
     Usage:
         from src.utils.phase_guard import Feature, assert_allowed
         assert_allowed(Feature.MACHINE_LEARNING)  # raises in Phase 1
     """
-    prohibited = _PROHIBITED.get(CURRENT_PHASE, frozenset())
-    if feature in prohibited:
+    _check_phase_known()
+    if feature in _PROHIBITED[CURRENT_PHASE]:
         raise PhaseConstraintError(
             f"'{feature.value}' is prohibited in Phase {CURRENT_PHASE}. "
             f"See docs/standards/phase-constraints.md for the full constraint list "
@@ -87,8 +98,12 @@ def assert_allowed(feature: Feature) -> None:
 
 
 def prohibited_in_current_phase() -> frozenset[Feature]:
-    """Return the complete set of features prohibited in the current phase."""
-    return _PROHIBITED.get(CURRENT_PHASE, frozenset())
+    """Return the complete set of features prohibited in the current phase.
+
+    Raises PhaseConstraintError if CURRENT_PHASE is not a recognised phase number.
+    """
+    _check_phase_known()
+    return _PROHIBITED[CURRENT_PHASE]
 
 
 def current_phase() -> int:

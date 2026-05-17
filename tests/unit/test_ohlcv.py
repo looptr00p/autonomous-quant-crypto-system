@@ -7,9 +7,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 
-from src.data.ohlcv import fetch_ohlcv, save_parquet
+from src.data.ohlcv import OHLCV_SCHEMA, _build_exchange, fetch_ohlcv, save_parquet
 
 
 def _make_candles(n: int = 5) -> list[list]:
@@ -105,3 +106,76 @@ class TestSaveParquet:
         loaded = pd.read_parquet(dest)
         assert len(loaded) == len(df)
         assert set(loaded.columns) == set(df.columns)
+
+    def test_no_tmp_file_left_after_save(self, tmp_path: Path) -> None:
+        candles = _make_candles(3)
+        ex = MagicMock()
+        ex.id = "binance"
+        ex.fetch_ohlcv.return_value = candles
+        since = datetime(2023, 11, 14, tzinfo=timezone.utc)
+        until = datetime(2023, 11, 18, tzinfo=timezone.utc)
+
+        df = fetch_ohlcv("BTC/USDT", "1d", since, until, exchange=ex)
+        save_parquet(df, tmp_path, "BTC/USDT", "1d")
+
+        tmp_files = list(tmp_path.glob("*.tmp.parquet"))
+        assert tmp_files == [], "Temporary file must be cleaned up after successful write"
+
+
+class TestBuildExchange:
+    """Verify _build_exchange always produces a Spot-type exchange in Phase 1."""
+
+    def test_default_type_is_spot(self) -> None:
+        with patch("src.data.ohlcv.assert_allowed"), \
+             patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
+             patch("src.data.ohlcv.get_settings") as mock_settings:
+            mock_settings.return_value.binance_api_key = ""
+            mock_binance.return_value = MagicMock()
+            mock_binance.return_value.set_sandbox_mode = MagicMock()
+
+            _build_exchange(sandbox=True)
+
+            call_params = mock_binance.call_args[0][0]
+            assert call_params["options"]["defaultType"] == "spot", (
+                "_build_exchange must always use defaultType='spot' in Phase 1"
+            )
+
+    def test_sandbox_mode_set_when_requested(self) -> None:
+        with patch("src.data.ohlcv.assert_allowed"), \
+             patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
+             patch("src.data.ohlcv.get_settings") as mock_settings:
+            mock_settings.return_value.binance_api_key = ""
+            mock_ex = MagicMock()
+            mock_binance.return_value = mock_ex
+
+            _build_exchange(sandbox=True)
+
+            mock_ex.set_sandbox_mode.assert_called_once_with(True)
+
+    def test_guard_called_with_futures_feature(self) -> None:
+        from src.utils.phase_guard import Feature
+        with patch("src.data.ohlcv.assert_allowed") as mock_guard, \
+             patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
+             patch("src.data.ohlcv.get_settings") as mock_settings:
+            mock_settings.return_value.binance_api_key = ""
+            mock_binance.return_value = MagicMock()
+
+            _build_exchange(sandbox=True)
+
+            mock_guard.assert_called_once_with(Feature.FUTURES)
+
+    def test_parquet_schema_matches_ohlcv_columns(self, tmp_path: Path) -> None:
+        candles = _make_candles(2)
+        ex = MagicMock()
+        ex.id = "binance"
+        ex.fetch_ohlcv.return_value = candles
+        since = datetime(2023, 11, 14, tzinfo=timezone.utc)
+        until = datetime(2023, 11, 16, tzinfo=timezone.utc)
+
+        df = fetch_ohlcv("BTC/USDT", "1d", since, until, exchange=ex)
+        dest = save_parquet(df, tmp_path, "BTC/USDT", "1d")
+
+        file_schema = pq.read_schema(dest)
+        declared_names = {f.name for f in OHLCV_SCHEMA}
+        file_names = set(file_schema.names)
+        assert declared_names == file_names

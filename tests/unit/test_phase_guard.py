@@ -149,6 +149,12 @@ class TestPhaseProgression:
         with pytest.raises(PhaseConstraintError):
             assert_allowed(Feature.AUTONOMOUS_AGENTS)
 
-    def test_unknown_phase_allows_everything(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_unknown_phase_raises_immediately(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 99)
-        assert_allowed(Feature.MACHINE_LEARNING)  # unknown phase → no prohibition
+        with pytest.raises(PhaseConstraintError, match="Unknown phase"):
+            assert_allowed(Feature.MACHINE_LEARNING)
+
+    def test_unknown_phase_prohibited_set_also_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(guard, "CURRENT_PHASE", 99)
+        with pytest.raises(PhaseConstraintError, match="Unknown phase"):
+            guard.prohibited_in_current_phase()
