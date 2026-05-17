@@ -414,4 +414,4 @@ Exceptions to these standards are permitted only when documented and approved. T
 
 ---
 
-*This document supersedes any conflicting guidance in `docs/standards/standards.md` for the items it covers. Both documents are maintained in parallel until `standards.md` is consolidated into this one.*
+*This document supersedes `docs/standards/standards.md`, which is deprecated. `standards.md` is retained for historical context only. This document is the sole canonical standards reference.*

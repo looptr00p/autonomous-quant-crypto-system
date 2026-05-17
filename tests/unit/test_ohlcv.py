@@ -125,13 +125,19 @@ class TestSaveParquet:
 class TestBuildExchange:
     """Verify _build_exchange always produces a Spot-type exchange in Phase 1."""
 
-    def test_default_type_is_spot(self) -> None:
-        with patch("src.data.ohlcv.assert_allowed"), \
-             patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
+    def test_succeeds_in_phase1_without_mocking(self) -> None:
+        """_build_exchange must not raise in Phase 1 — the spot factory is always allowed."""
+        with patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
              patch("src.data.ohlcv.get_settings") as mock_settings:
             mock_settings.return_value.binance_api_key = ""
             mock_binance.return_value = MagicMock()
-            mock_binance.return_value.set_sandbox_mode = MagicMock()
+            _build_exchange(sandbox=True)  # must not raise PhaseConstraintError or anything else
+
+    def test_default_type_is_spot(self) -> None:
+        with patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
+             patch("src.data.ohlcv.get_settings") as mock_settings:
+            mock_settings.return_value.binance_api_key = ""
+            mock_binance.return_value = MagicMock()
 
             _build_exchange(sandbox=True)
 
@@ -141,8 +147,7 @@ class TestBuildExchange:
             )
 
     def test_sandbox_mode_set_when_requested(self) -> None:
-        with patch("src.data.ohlcv.assert_allowed"), \
-             patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
+        with patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
              patch("src.data.ohlcv.get_settings") as mock_settings:
             mock_settings.return_value.binance_api_key = ""
             mock_ex = MagicMock()
@@ -151,18 +156,6 @@ class TestBuildExchange:
             _build_exchange(sandbox=True)
 
             mock_ex.set_sandbox_mode.assert_called_once_with(True)
-
-    def test_guard_called_with_futures_feature(self) -> None:
-        from src.utils.phase_guard import Feature
-        with patch("src.data.ohlcv.assert_allowed") as mock_guard, \
-             patch("src.data.ohlcv.ccxt.binance") as mock_binance, \
-             patch("src.data.ohlcv.get_settings") as mock_settings:
-            mock_settings.return_value.binance_api_key = ""
-            mock_binance.return_value = MagicMock()
-
-            _build_exchange(sandbox=True)
-
-            mock_guard.assert_called_once_with(Feature.FUTURES)
 
     def test_parquet_schema_matches_ohlcv_columns(self, tmp_path: Path) -> None:
         candles = _make_candles(2)

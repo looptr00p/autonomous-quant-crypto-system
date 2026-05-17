@@ -15,7 +15,6 @@ import pyarrow.parquet as pq
 
 from src.utils.config import get_settings, load_config
 from src.utils.logging import configure_logging, get_logger
-from src.utils.phase_guard import Feature, assert_allowed
 
 logger = get_logger(__name__)
 
@@ -41,7 +40,6 @@ OHLCV_SCHEMA = pa.schema(
 
 def _build_exchange(sandbox: bool = True) -> ccxt.Exchange:
     """Build a read-only ccxt Binance Spot instance."""
-    assert_allowed(Feature.FUTURES)  # Phase 1 is spot-only; this raises if futures is active
     settings = get_settings()
     params: dict[str, Any] = {
         "enableRateLimit": True,

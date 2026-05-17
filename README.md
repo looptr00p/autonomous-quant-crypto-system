@@ -196,7 +196,7 @@ cp .env.example .env
 pytest
 ```
 
-All 17 unit tests should pass. No network access is required.
+All tests should pass. No network access is required.
 
 ---
 

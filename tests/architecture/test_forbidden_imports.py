@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 # Libraries that must never appear anywhere in src/ without an ADR
 FORBIDDEN_GLOBAL: list[str] = [
     "torch",
@@ -37,7 +39,7 @@ FORBIDDEN_PHASE1: list[str] = [
     "asyncio",  # asyncio use is a signal of streaming architecture — flag it
 ]
 
-_SRC_FILES = sorted(Path("src").rglob("*.py"))
+_SRC_FILES = sorted((_PROJECT_ROOT / "src").rglob("*.py"))
 
 
 def extract_all_top_imports(path: Path) -> list[str]:

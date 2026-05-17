@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 # Canonical DAG — source of truth: docs/architecture/system-architecture-v1.md §5
 # Key: owner package.  Value: set of src.* packages it is allowed to import.
 ALLOWED: dict[str, set[str]] = {
@@ -31,7 +33,7 @@ ALLOWED: dict[str, set[str]] = {
     "src.llm_oversight": {"src.utils"},
 }
 
-_SRC_FILES = sorted(Path("src").rglob("*.py"))
+_SRC_FILES = sorted((_PROJECT_ROOT / "src").rglob("*.py"))
 
 
 def extract_src_imports(path: Path) -> list[str]:

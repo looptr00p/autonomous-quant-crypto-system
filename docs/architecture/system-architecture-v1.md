@@ -600,7 +600,7 @@ Observe the system's activity through the event stream, produce human-readable n
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
 | LLM hallucination in audit trail | Medium | All LLM-generated narratives are clearly labelled as such; they do not replace structured logs |
-| Oversight module accidentally imports Quant Core modules | Low | Import boundary enforced by `ruff` linting rule; CI check on `src/llm_oversight` imports |
+| Oversight module accidentally imports Quant Core modules | Low | Import boundary enforced by `tests/architecture/test_dependency_boundaries.py`; fails CI on every push |
 | User misinterprets oversight narrative as authoritative signal | Medium | All bitácora entries include a header: "This document is an observation record, not a trading signal" |
 | LLM context window truncates long log sequences | Medium | Events are summarised in batches; raw logs are always authoritative over narrative summaries |
 
@@ -665,7 +665,7 @@ The only permissible output of the LLM Oversight layer is human-readable Markdow
 
 The boundary is not enforced solely by convention. It is enforced by:
 
-1. **Import restriction** — `src/llm_oversight/` imports only from `src/utils/`. Imports from any other `src/` package will fail the `ruff` CI check.
+1. **Import restriction** — `src/llm_oversight/` imports only from `src/utils/`. Imports from any other `src/` package fail `tests/architecture/test_dependency_boundaries.py`, which runs on every push in CI.
 2. **No exchange client** — `ccxt` is not imported anywhere in `src/llm_oversight/`.
 3. **No write access to data/** — The observer function signature accepts events and returns `None`.
 4. **Code review** — Any pull request that adds a call from `src/llm_oversight/` to a Quant Core function is rejected.
