@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import math
+import re
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
-
 from datetime import date as _date
+from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator, model_validator
-
+from pydantic import BaseModel, Field, model_validator
 
 # ── Input model (Pydantic — user-facing, validates at construction) ────────────
 
@@ -49,15 +46,19 @@ class BacktestConfig(BaseModel):
     model_config = {"frozen": True}
 
     @model_validator(mode="after")
-    def validate_dates(self) -> "BacktestConfig":
+    def validate_dates(self) -> BacktestConfig:
         for field_name, date_str in [("start_date", self.start_date), ("end_date", self.end_date)]:
             if date_str:
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
+                    raise ValueError(
+                        f"{field_name} must be in exact YYYY-MM-DD format, got '{date_str}'"
+                    )
                 try:
                     _date.fromisoformat(date_str)
                 except ValueError:
                     raise ValueError(
-                        f"{field_name} must be in YYYY-MM-DD format, got '{date_str}'"
-                    )
+                        f"{field_name} must be in exact YYYY-MM-DD format, got '{date_str}'"
+                    ) from None
         if self.start_date and self.end_date and self.start_date > self.end_date:
             raise ValueError(
                 f"start_date ({self.start_date}) must not be after end_date ({self.end_date})"

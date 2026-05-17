@@ -592,3 +592,80 @@ class TestNetWinRate:
         ])
         result = run_backtest(ohlcv, sig, _zero_cost_config())
         assert math.isnan(result.metrics["win_rate"])
+
+
+# ── Strict date format enforcement ─────────────────────────────────────────
+
+class TestStrictDateFormat:
+    def test_basic_iso_without_dashes_20240101_rejected(self) -> None:
+        with pytest.raises(Exception, match="YYYY-MM-DD"):
+            BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                           start_date="20240101")
+
+    def test_partial_iso_2024_01_rejected(self) -> None:
+        with pytest.raises(Exception, match="YYYY-MM-DD"):
+            BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                           start_date="2024-01")
+
+    def test_valid_yyyy_mm_dd_accepted(self) -> None:
+        cfg = BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                             start_date="2024-01-01", end_date="2024-12-31")
+        assert cfg.start_date == "2024-01-01"
+        assert cfg.end_date == "2024-12-31"
+
+    def test_empty_dates_still_accepted(self) -> None:
+        cfg = BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0)
+        assert cfg.start_date == ""
+        assert cfg.end_date == ""
+
+
+# ── OHLCV validation without metadata columns ───────────────────────────────
+
+class TestOHLCVValidationWithoutMetadata:
+    """run_backtest() must reject invalid OHLCV even if symbol/timeframe/exchange
+    columns are missing — the schema check catches them before price checks."""
+
+    def _ohlcv_no_metadata(self) -> pd.DataFrame:
+        n = 3
+        closes = [100.0, 105.0, 110.0]
+        opens = [100.0, 100.0, 105.0]
+        dates = pd.date_range(start="2024-01-01", periods=n, freq="1D", tz="UTC")
+        df = pd.DataFrame({
+            "timestamp": dates,
+            "open": opens,
+            "high": [max(o, c) * 1.005 for o, c in zip(opens, closes)],
+            "low": [min(o, c) * 0.995 for o, c in zip(opens, closes)],
+            "close": closes,
+            "volume": [1_000_000.0] * n,
+        })
+        return df
+
+    def test_rejects_invalid_data_without_metadata_cols(self) -> None:
+        ohlcv = self._ohlcv_no_metadata()
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        with pytest.raises(ValueError, match="quality validation"):
+            run_backtest(ohlcv, sig, _zero_cost_config())
+
+    def test_rejects_non_positive_price_without_metadata_cols(self) -> None:
+        ohlcv = self._ohlcv_no_metadata()
+        ohlcv.loc[1, "close"] = -5.0
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        with pytest.raises(ValueError, match="quality validation"):
+            run_backtest(ohlcv, sig, _zero_cost_config())
+
+
+# ── All-neutral signals ─────────────────────────────────────────────────────
+
+class TestAllNeutralSignals:
+    def test_all_neutral_produces_zero_trades(self) -> None:
+        ohlcv = _make_ohlcv([100.0, 105.0, 110.0])
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        result = run_backtest(ohlcv, sig, _zero_cost_config())
+        assert len(result.trades) == 0
+        assert result.metrics["trade_count"] == 0.0
+
+    def test_all_neutral_win_rate_is_nan(self) -> None:
+        ohlcv = _make_ohlcv([100.0, 105.0, 110.0])
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        result = run_backtest(ohlcv, sig, _zero_cost_config())
+        assert math.isnan(result.metrics["win_rate"])

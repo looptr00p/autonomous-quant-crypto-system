@@ -91,7 +91,21 @@ def compute_metrics(
     # Net P&L = (sell.fill_price - buy.fill_price) * buy.quantity - buy.fee - sell.fee
     # A trade is a win only if net P&L > 0 (after all costs).
     # Using gross fill price comparison would mark fee-losing trades as wins.
-    pairs = list(zip(buy_trades, sell_trades))
+    # Validate trade sequence: sell must never exceed buy (would mean a sell
+    # without a prior buy). Exactly one unpaired buy is allowed at the end
+    # (open position not yet sold when simulation ends).
+    if len(sell_trades) > len(buy_trades):
+        raise ValueError(
+            f"Invalid trade sequence: {len(sell_trades)} sell(s) but only "
+            f"{len(buy_trades)} buy(s)"
+        )
+    if len(buy_trades) - len(sell_trades) > 1:
+        raise ValueError(
+            f"Invalid trade sequence: {len(buy_trades)} buy(s) with only "
+            f"{len(sell_trades)} sell(s); at most one unpaired buy is allowed"
+        )
+    completed_buys = buy_trades[:len(sell_trades)]
+    pairs = list(zip(completed_buys, sell_trades, strict=True))
     if pairs:
         def _net_pnl(buy: Trade, sell: Trade) -> float:
             gross = (sell.fill_price - buy.fill_price) * buy.quantity
