@@ -25,9 +25,11 @@ ALLOWED: dict[str, set[str]] = {
     "aqcs.portfolio":     {"aqcs.signals", "aqcs.utils"},
     "aqcs.risk":          {"aqcs.portfolio", "aqcs.utils"},
     "aqcs.execution":     {"aqcs.risk", "aqcs.utils"},
+    "aqcs.experiments":   {"aqcs.utils"},
     "aqcs.backtesting":   {
         "aqcs.data", "aqcs.features", "aqcs.signals",
-        "aqcs.portfolio", "aqcs.risk", "aqcs.execution", "aqcs.utils",
+        "aqcs.portfolio", "aqcs.risk", "aqcs.execution",
+        "aqcs.experiments", "aqcs.utils",
     },
     "aqcs.monitoring":    {"aqcs.data", "aqcs.utils"},
     "aqcs.llm_oversight": {"aqcs.utils"},

@@ -12,6 +12,7 @@ import pytest
 
 EXPECTED_PACKAGES = [
     "src/aqcs/data",
+    "src/aqcs/experiments",
     "src/aqcs/features",
     "src/aqcs/signals",
     "src/aqcs/portfolio",
@@ -25,6 +26,10 @@ EXPECTED_PACKAGES = [
 
 EXPECTED_FILES = [
     # Source
+    "src/aqcs/experiments/tracker.py",
+    "src/aqcs/experiments/models.py",
+    "src/aqcs/experiments/storage.py",
+    "src/aqcs/experiments/fingerprint.py",
     "src/aqcs/utils/phase_guard.py",
     "src/aqcs/utils/events.py",
     "src/aqcs/utils/event_bus.py",
