@@ -68,18 +68,18 @@ Concrete implications:
 
 | Package | Responsibility |
 |---------|---------------|
-| `src/data/` | Market data acquisition. Downloads, validates, and persists OHLCV and other market data. No transformation logic. |
-| `src/features/` | Deterministic feature engineering applied to raw data frames. Pure functions only. |
-| `src/signals/` | Rules-based and statistical signal generation. Output is a scalar or series in {−1, 0, +1} or a probability. |
-| `src/portfolio/` | Combines signals into target weight vectors, subject to constraints. |
-| `src/risk/` | Position sizing, drawdown limits, concentration limits. All thresholds are configuration-driven. |
-| `src/execution/` | Order management interface. Read-only in Phase 1. Dry-run logging only. |
-| `src/backtesting/` | Historical simulation. No look-ahead bias by construction. |
-| `src/monitoring/` | Data quality probes and system health checks. |
-| `src/utils/` | Configuration loader, structured logging, typed event schema. |
-| `src/llm_oversight/` | Read-only observer. Receives `OversightEvent` records. Never modifies state. |
+| `src/aqcs/data/` | Market data acquisition. Downloads, validates, and persists OHLCV and other market data. No transformation logic. |
+| `src/aqcs/features/` | Deterministic feature engineering applied to raw data frames. Pure functions only. |
+| `src/aqcs/signals/` | Rules-based and statistical signal generation. Output is a scalar or series in {−1, 0, +1} or a probability. |
+| `src/aqcs/portfolio/` | Combines signals into target weight vectors, subject to constraints. |
+| `src/aqcs/risk/` | Position sizing, drawdown limits, concentration limits. All thresholds are configuration-driven. |
+| `src/aqcs/execution/` | Order management interface. Read-only in Phase 1. Dry-run logging only. |
+| `src/aqcs/backtesting/` | Historical simulation. No look-ahead bias by construction. |
+| `src/aqcs/monitoring/` | Data quality probes and system health checks. |
+| `src/aqcs/utils/` | Configuration loader, structured logging, typed event schema. |
+| `src/aqcs/llm_oversight/` | Read-only observer. Receives `OversightEvent` records. Never modifies state. |
 
-Full component specifications: [`docs/architecture/architecture.md`](docs/architecture/architecture.md).
+Full component specifications: [`docs/architecture/system-architecture-v1.md`](docs/architecture/system-architecture-v1.md).
 
 ---
 
@@ -89,7 +89,7 @@ The Quant Core comprises all modules except `llm_oversight`. It operates under t
 
 1. **Determinism.** All functions are pure or explicitly stateful with auditable state. Random processes receive an explicit seed.
 2. **No runtime configuration mutation.** Configuration is loaded once at startup. No component may alter it during execution.
-3. **No external API calls from signal logic.** Data is fetched by `src/data/`. Signal and feature modules operate on local files only.
+3. **No external API calls from signal logic.** Data is fetched by `src/aqcs/data/`. Signal and feature modules operate on local files only.
 4. **Typed contracts.** All inter-module data is exchanged via typed Pydantic models or typed Pandas DataFrames with declared schemas.
 5. **Explicit failures.** Schema violations, missing data, and unexpected values raise exceptions. No silent fallbacks.
 
@@ -111,7 +111,7 @@ The LLM Oversight layer is a passive observer. Its role is documentation and aud
 - Generating trading signals or weight adjustments.
 - Running autonomously without a human review checkpoint.
 
-The boundary is enforced architecturally: `src/llm_oversight` has read access to the event bus and write access only to `docs/bitacora/`. It imports from `src/utils` only.
+The boundary is enforced architecturally: `src/aqcs/llm_oversight` has read access to the event bus and write access only to `docs/bitacora/`. It imports from `src/aqcs/utils` only.
 
 ---
 
@@ -206,15 +206,15 @@ All tests should pass. No network access is required.
 
 ```bash
 # Daily candles, BTC/USDT, from 2023-01-01 to today
-python -m src.data.ohlcv --symbol BTC/USDT --start 2023-01-01
+python -m aqcs.data.ohlcv --symbol BTC/USDT --start 2023-01-01
 
 # 4-hour candles, custom date range
-python -m src.data.ohlcv --symbol ETH/USDT --timeframe 4h \
+python -m aqcs.data.ohlcv --symbol ETH/USDT --timeframe 4h \
     --start 2024-01-01 --end 2024-06-01
 
 # Batch download
 for sym in BTC/USDT ETH/USDT SOL/USDT; do
-    python -m src.data.ohlcv --symbol "$sym" --start 2023-01-01
+    python -m aqcs.data.ohlcv --symbol "$sym" --start 2023-01-01
 done
 
 # Shell convenience wrapper
@@ -253,7 +253,7 @@ configs/<AQCS_ENV>.yaml     — environment override (version-controlled)
 .env                        — secrets: API keys (never committed)
 ```
 
-The active environment is set via `AQCS_ENV` (default: `development`). Secret values are accessed exclusively through `src/utils/config.Settings`; no `os.environ` calls appear in business logic.
+The active environment is set via `AQCS_ENV` (default: `development`). Secret values are accessed exclusively through `src/aqcs/utils/config.Settings`; no `os.environ` calls appear in business logic.
 
 Feature flags in `base.yaml` enforce the Phase 1 constraints at the configuration level:
 
@@ -345,16 +345,17 @@ aqcs/
 │   └── dev.txt               — Development dependencies (pinned)
 ├── scripts/                  — Utility scripts
 ├── src/
-│   ├── data/                 — Data acquisition
-│   ├── features/             — Feature engineering
-│   ├── signals/              — Signal generation
-│   ├── portfolio/            — Portfolio construction
-│   ├── risk/                 — Risk management
-│   ├── execution/            — Order management (read-only, Phase 1)
-│   ├── backtesting/          — Simulation engine
-│   ├── monitoring/           — Data quality and system health
-│   ├── utils/                — Config, logging, events
-│   └── llm_oversight/        — LLM observer (read-only)
+│   └── aqcs/
+│       ├── data/                 — Data acquisition
+│       ├── features/             — Feature engineering
+│       ├── signals/              — Signal generation
+│       ├── portfolio/            — Portfolio construction
+│       ├── risk/                 — Risk management
+│       ├── execution/            — Order management (read-only, Phase 1)
+│       ├── backtesting/          — Simulation engine
+│       ├── monitoring/           — Data quality and system health
+│       ├── utils/                — Config, logging, events
+│       └── llm_oversight/        — LLM observer (read-only)
 └── tests/
     ├── unit/                 — Mocked, no network
     └── integration/          — Requires live credentials
