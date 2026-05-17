@@ -96,9 +96,13 @@ These must never be violated, in any phase:
 
 ## 11. Git workflow
 
-- Branch naming: `feat/<topic>`, `fix/<topic>`, `exp/<topic>`, `docs/<topic>`.
-- Commit messages: imperative mood, present tense. "Add OHLCV downloader", not "Added" or "Adding".
-- Every merge to `main` requires passing tests and linting.
+This historical section has been superseded by
+`docs/standards/project-standards.md#6-git-workflow`.
+
+- Branch naming follows lightweight Gitflow:
+  `feat/`, `fix/`, `docs/`, `test/`, `chore/`, `data/`, `exp/`.
+- Task commits use `<TASK-ID>: <imperative present-tense summary>`.
+- Every merge to `master` requires passing verification.
 - Architecture Decision Records (ADRs) in `docs/decisions/` for non-trivial design choices.
 
 ## 12. Dependency management

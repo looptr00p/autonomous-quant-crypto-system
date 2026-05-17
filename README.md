@@ -303,9 +303,12 @@ pytest
 
 ### Git
 
-- Branch naming: `feat/`, `fix/`, `exp/`, `docs/`
-- Commit messages: imperative, present tense ("Add OHLCV downloader")
+- Branch naming follows lightweight Gitflow:
+  `feat/`, `fix/`, `docs/`, `test/`, `chore/`, `data/`, `exp/`
+- Task commits use `<TASK-ID>: <imperative present-tense summary>`
 - Non-trivial design decisions are documented as ADRs in `docs/decisions/`
+- Full branch, commit, push, and merge rules live in
+  `docs/standards/project-standards.md#6-git-workflow`
 
 ---
 

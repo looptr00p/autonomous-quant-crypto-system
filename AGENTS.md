@@ -43,7 +43,7 @@ These apply to all agents, all phases, all contexts:
 
 1. **The Quant Core is deterministic.** No randomness without explicit seeding. No external calls from signal/feature/portfolio/risk modules.
 2. **LLM Oversight is passive.** It reads events. It never modifies state. It never trades.
-3. **Humans have final approval.** No agent may merge to `main`, deploy, or modify critical config without human sign-off.
+3. **Humans have final approval.** No agent may merge to `master`, deploy, or modify critical config without human sign-off.
 4. **Phase Guard is always active.** Do not bypass `phase_guard.assert_allowed()`. Do not modify `CURRENT_PHASE` without an approved ADR.
 5. **Architecture boundary tests must pass.** Do not disable or weaken `tests/architecture/`.
 6. **No secrets in code.** All credentials go in `.env` only.
@@ -67,7 +67,7 @@ The following are explicitly prohibited for all AI agents in all phases:
 | Vector memory systems | Not part of Phase 1 scope |
 | Self-modifying logic | Agents do not modify their own config or role definitions |
 | Scope expansion without approval | New modules require an approved Objective document |
-| Merging to `main` without tests | CI must pass; human must approve |
+| Merging to `master` without tests | CI must pass; human must approve |
 | Modifying `configs/base.yaml` feature flags to `true` | Requires explicit human instruction |
 | Bypassing `phase_guard` or disabling architecture tests | Never |
 
@@ -128,7 +128,7 @@ The following actions require **explicit human approval** before execution:
 - Enabling any feature flag in `configs/base.yaml`
 - Adding new third-party dependencies
 - Creating or modifying Architecture Decision Records (ADRs)
-- Merging to `main`
+- Merging to `master`
 - Introducing any execution pathway (even dry-run)
 - Any scope not covered by an existing approved Objective document
 

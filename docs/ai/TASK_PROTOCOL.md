@@ -77,9 +77,45 @@ Every agent must follow this workflow for every task:
 5. **Implement** the change. Write tests first or alongside.
 6. **Verify** the test suite passes after implementing.
 7. **Run** lint: `ruff check src/ tests/`.
-8. **Commit** with a descriptive message following the project convention.
-9. **Push** to remote.
+8. **Commit** using the project format: `<TASK-ID>: <imperative present-tense summary>`.
+9. **Push** the task branch to remote.
 10. **Complete** the Handoff record before stopping.
+
+---
+
+## Gitflow and commit rules
+
+The canonical Git workflow is defined in
+`docs/standards/project-standards.md#6-git-workflow`. Every agent must follow it
+for implementation, documentation, operational, and audit-fix tasks.
+
+### Branches
+
+- Do not implement directly on `master`.
+- Create or reuse a task-scoped branch before making changes.
+- Use one of the approved prefixes: `feat/`, `fix/`, `docs/`, `test/`, `chore/`, `data/`, `exp/`.
+- Use lowercase kebab-case after the prefix.
+- Push the branch to `origin` before stopping.
+- Delete remote branches after they have been merged into `master`.
+
+### Commits
+
+Task commits use:
+
+```text
+<TASK-ID>: <imperative present-tense summary>
+```
+
+Examples:
+
+```text
+TASK-DOC-STANDARDS-003: document Gitflow and commit conventions
+TASK-ARCH-ENFORCE-001: extend legacy namespace enforcement to scripts
+TASK-DATA-CAPTURE-001: record passive OHLCV capture handoff
+```
+
+If a change has no task ID, use a conventional prefix such as `docs:`, `fix:`,
+`feat:`, `test:`, or `chore:`. Task IDs are preferred whenever one exists.
 
 ---
 
@@ -98,7 +134,7 @@ Stop and escalate to the Human Founder when:
 - The task requires enabling a blocked feature in `phase_guard.py`
 - The task requires modifying `CURRENT_PHASE`
 - The task requires a new external dependency
-- The task requires merging to `main`
+- The task requires merging to `master`
 - The scope is unclear or extends beyond the current Objective
 - An audit finding suggests the current implementation approach is wrong
 - A security or data integrity issue is discovered
