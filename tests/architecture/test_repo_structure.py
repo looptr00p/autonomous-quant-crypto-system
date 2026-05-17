@@ -1,0 +1,63 @@
+"""Verify the expected repository layout exists.
+
+These tests catch regressions where a component is accidentally deleted,
+moved, or renamed. They do not test behaviour — only presence.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+EXPECTED_PACKAGES = [
+    "src/data",
+    "src/features",
+    "src/signals",
+    "src/portfolio",
+    "src/risk",
+    "src/execution",
+    "src/backtesting",
+    "src/monitoring",
+    "src/llm_oversight",
+    "src/utils",
+]
+
+EXPECTED_FILES = [
+    "src/utils/phase_guard.py",
+    "src/utils/events.py",
+    "src/utils/config.py",
+    "src/utils/logging.py",
+    "src/data/ohlcv.py",
+    "src/llm_oversight/observer.py",
+    "docs/architecture/system-architecture-v1.md",
+    "docs/standards/project-standards.md",
+    "docs/standards/phase-constraints.md",
+    "pyproject.toml",
+    "configs/base.yaml",
+    ".env.example",
+]
+
+
+@pytest.mark.parametrize("pkg", EXPECTED_PACKAGES)
+def test_package_directory_exists(pkg: str) -> None:
+    assert Path(pkg).is_dir(), (
+        f"Expected package directory '{pkg}' not found. "
+        f"If this component was intentionally removed, update EXPECTED_PACKAGES in this test."
+    )
+
+
+@pytest.mark.parametrize("pkg", EXPECTED_PACKAGES)
+def test_package_has_init(pkg: str) -> None:
+    init = Path(pkg) / "__init__.py"
+    assert init.exists(), (
+        f"'{init}' is missing. Every src/ package must have an __init__.py."
+    )
+
+
+@pytest.mark.parametrize("fp", EXPECTED_FILES)
+def test_required_file_exists(fp: str) -> None:
+    assert Path(fp).is_file(), (
+        f"Required file '{fp}' not found. "
+        f"If this file was intentionally removed or renamed, update EXPECTED_FILES in this test."
+    )
