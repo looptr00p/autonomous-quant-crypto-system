@@ -42,6 +42,8 @@ EXPECTED_FILES = [
     "docs/architecture/system-architecture-v1.md",
     "docs/architecture/event-schema.md",
     "docs/architecture/data-validation.md",
+    "docs/architecture/experiment-tracking.md",
+    "docs/architecture/backtesting-standards.md",
     # Standards docs
     "docs/standards/project-standards.md",
     "docs/standards/phase-constraints.md",
