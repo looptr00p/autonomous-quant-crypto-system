@@ -46,10 +46,10 @@ class OversightObserver:
     def __init__(self, bus: EventBus) -> None:
         self._bus = bus
 
-    def subscribe(self, source_bus: EventBus) -> None:
-        """Register this observer on all core event categories."""
+    def subscribe(self) -> None:
+        """Register this observer on all core event categories of the injected bus."""
         for category in _OBSERVED_CATEGORIES:
-            source_bus.subscribe(self._handle_core_event, category)
+            self._bus.subscribe(self._handle_core_event, category)
 
     def _handle_core_event(self, event: BaseEvent) -> None:
         """Log any received core event. No state mutation, no external calls."""

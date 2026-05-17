@@ -67,6 +67,7 @@ class EventBus:
                     event_name=event.event_name.value,
                     event_category=event.event_category.value,
                     error=str(exc),
+                    exc_info=True,
                 )
 
     def handler_count(self, category: EventCategory | None = None) -> int:

@@ -1,11 +1,16 @@
 # AQCS Architecture — Phase 1: Foundation Layer
 
 > **DEPRECATED** — This document has been superseded by
-> [`system-architecture-v1.md`](system-architecture-v1.md), which is the canonical
-> architecture reference. This file is retained for historical context only.
-> Do not use it as a source of truth. The dependency rule for `src/portfolio/`
-> in §8 of this document conflicts with `system-architecture-v1.md §5` —
-> the latter takes precedence.
+> [`system-architecture-v1.md`](system-architecture-v1.md) and
+> [`event-schema.md`](event-schema.md), which are the canonical references.
+> This file is retained for historical context only. Do not use it as a source of truth.
+>
+> Known conflicts with current implementation:
+> - §8 dependency rule for `src/portfolio/` conflicts with `system-architecture-v1.md §5`.
+> - §5 event schema (DataEvent, OversightEvent, quant_component field) is replaced by
+>   the schema in `event-schema.md` and `src/aqcs/utils/events.py`.
+> - All references to `src.*` namespaces are replaced by `aqcs.*`.
+> - The canonical source takes precedence unconditionally.
 
 **Version:** 0.1.0  
 **Date:** 2026-05-16  

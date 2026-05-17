@@ -2,8 +2,9 @@
 
 Design principles:
 - No free-form message fields on BaseEvent (use typed payload fields instead).
-- event_category and event_name are separated.
+- event_category and event_name are separated and validated for consistency.
 - All events are immutable (Pydantic frozen=True).
+- Timestamps are always UTC-aware; naive datetimes are rejected at construction time.
 - SignalDirection is an Enum, not a free-form string.
 - Events are data records, not RPC calls.
 """
@@ -15,7 +16,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ── Enumerations ──────────────────────────────────────────────────────────────
@@ -36,8 +37,9 @@ class EventCategory(str, Enum):
 
 
 class EventName(str, Enum):
-    # data
+    # data — acquisition events
     DATA_DOWNLOADED = "data.downloaded"
+    # validation — data quality events
     DATA_VALIDATION_FAILED = "data.validation_failed"
     DATA_SCHEMA_MISMATCH = "data.schema_mismatch"
     DATA_GAP_DETECTED = "data.gap_detected"
@@ -83,6 +85,34 @@ class SignalDirection(str, Enum):
     NEUTRAL = "neutral"
 
 
+# ── Category / name consistency contract ──────────────────────────────────────
+# Each EventName has exactly one valid EventCategory. This mapping is the
+# authoritative source; BaseEvent validates against it at construction time.
+
+_VALID_CATEGORY_FOR_NAME: dict[EventName, EventCategory] = {
+    EventName.DATA_DOWNLOADED:              EventCategory.DATA,
+    EventName.DATA_VALIDATION_FAILED:       EventCategory.VALIDATION,
+    EventName.DATA_SCHEMA_MISMATCH:         EventCategory.VALIDATION,
+    EventName.DATA_GAP_DETECTED:            EventCategory.VALIDATION,
+    EventName.CONFIG_LOADED:                EventCategory.CONFIG,
+    EventName.PHASE_CONSTRAINT_BLOCKED:     EventCategory.PHASE_GUARD,
+    EventName.ARCHITECTURE_BOUNDARY_VIOLATION: EventCategory.ARCHITECTURE,
+    EventName.EXPERIMENT_STARTED:           EventCategory.EXPERIMENT,
+    EventName.EXPERIMENT_COMPLETED:         EventCategory.EXPERIMENT,
+    EventName.EXPERIMENT_FAILED:            EventCategory.EXPERIMENT,
+    EventName.SIGNAL_GENERATED:             EventCategory.SIGNAL,
+    EventName.PORTFOLIO_WEIGHTS_COMPUTED:   EventCategory.PORTFOLIO,
+    EventName.RISK_CHECK_PASSED:            EventCategory.RISK,
+    EventName.RISK_CHECK_FAILED:            EventCategory.RISK,
+    EventName.BACKTEST_STARTED:             EventCategory.BACKTESTING,
+    EventName.BACKTEST_COMPLETED:           EventCategory.BACKTESTING,
+    EventName.BACKTEST_FAILED:              EventCategory.BACKTESTING,
+    EventName.OVERSIGHT_REVIEW_GENERATED:   EventCategory.OVERSIGHT,
+    EventName.SYSTEM_STARTUP:               EventCategory.SYSTEM,
+    EventName.SYSTEM_SHUTDOWN:              EventCategory.SYSTEM,
+}
+
+
 # ── Base event contract ───────────────────────────────────────────────────────
 
 EVENT_SCHEMA_VERSION = "1.0"
@@ -91,8 +121,9 @@ EVENT_SCHEMA_VERSION = "1.0"
 class BaseEvent(BaseModel):
     """Immutable base for all AQCS system events.
 
-    No human-readable message field — use typed payload fields on subclasses
-    or the payload dict for ad-hoc structured data.
+    Invariants enforced at construction time:
+    - timestamp_utc must be UTC-aware (naive datetimes are rejected).
+    - event_category must match the canonical category for event_name.
     """
 
     event_id: UUID = Field(default_factory=uuid4)
@@ -111,6 +142,35 @@ class BaseEvent(BaseModel):
 
     model_config = {"frozen": True}
 
+    @field_validator("timestamp_utc", mode="before")
+    @classmethod
+    def require_utc_aware(cls, v: object) -> object:
+        if not isinstance(v, datetime):
+            return v
+        if v.tzinfo is None:
+            raise ValueError(
+                "timestamp_utc must be UTC-aware. "
+                "Use datetime.now(timezone.utc) or attach tzinfo=timezone.utc."
+            )
+        offset = v.utcoffset()
+        if offset is not None and offset.total_seconds() != 0:
+            raise ValueError(
+                f"timestamp_utc must be UTC (offset 0). Got offset {v.utcoffset()}. "
+                "Convert to UTC before constructing an event."
+            )
+        return v
+
+    @model_validator(mode="after")
+    def require_consistent_category(self) -> BaseEvent:
+        expected = _VALID_CATEGORY_FOR_NAME.get(self.event_name)
+        if expected is not None and self.event_category != expected:
+            raise ValueError(
+                f"event_name '{self.event_name.value}' requires "
+                f"event_category '{expected.value}', "
+                f"got '{self.event_category.value}'."
+            )
+        return self
+
 
 # ── Typed event classes ───────────────────────────────────────────────────────
 
@@ -127,10 +187,32 @@ class DataDownloadedEvent(BaseEvent):
 class DataValidationFailedEvent(BaseEvent):
     event_category: EventCategory = EventCategory.VALIDATION
     event_name: EventName = EventName.DATA_VALIDATION_FAILED
+    severity: EventSeverity = EventSeverity.WARNING
     symbol: str
     timeframe: str
     reason: str
     row_count: int = 0
+
+
+class DataSchemaMismatchEvent(BaseEvent):
+    event_category: EventCategory = EventCategory.VALIDATION
+    event_name: EventName = EventName.DATA_SCHEMA_MISMATCH
+    severity: EventSeverity = EventSeverity.ERROR
+    symbol: str
+    timeframe: str
+    expected_columns: list[str]
+    actual_columns: list[str]
+
+
+class DataGapDetectedEvent(BaseEvent):
+    event_category: EventCategory = EventCategory.VALIDATION
+    event_name: EventName = EventName.DATA_GAP_DETECTED
+    severity: EventSeverity = EventSeverity.WARNING
+    symbol: str
+    timeframe: str
+    gap_start: str
+    gap_end: str
+    missing_bars: int
 
 
 class ConfigLoadedEvent(BaseEvent):
@@ -166,6 +248,15 @@ class ExperimentCompletedEvent(BaseEvent):
     duration_seconds: float
     output_path: str
     metrics: dict[str, float] = Field(default_factory=dict)
+
+
+class ExperimentFailedEvent(BaseEvent):
+    event_category: EventCategory = EventCategory.EXPERIMENT
+    event_name: EventName = EventName.EXPERIMENT_FAILED
+    severity: EventSeverity = EventSeverity.ERROR
+    experiment_name: str
+    reason: str
+    duration_seconds: float = 0.0
 
 
 class SignalGeneratedEvent(BaseEvent):
