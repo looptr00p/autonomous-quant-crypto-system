@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import pytest
@@ -24,7 +24,7 @@ from aqcs.utils.events import (
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 def _make_df(n: int = 5, *, start: str = "2024-01-01", freq: str = "1D") -> pd.DataFrame:
-    """Synthetic valid daily OHLCV frame."""
+    """Synthetic valid daily OHLCV frame with UTC timestamps."""
     dates = pd.date_range(start=start, periods=n, freq=freq, tz="UTC")
     return pd.DataFrame({
         "timestamp": dates,
@@ -39,21 +39,53 @@ def _make_df(n: int = 5, *, start: str = "2024-01-01", freq: str = "1D") -> pd.D
     })
 
 
-# ── ValidationResult ──────────────────────────────────────────────────────────
+# ── ValidationResult metadata ─────────────────────────────────────────────────
 
-class TestValidationResult:
-    def test_valid_result(self) -> None:
-        r = ValidationResult(is_valid=True, errors=[], warnings=[])
+class TestValidationResultMetadata:
+    def test_valid_result_has_metadata(self) -> None:
+        df = _make_df(5)
+        r = validate_ohlcv(df, "BTC/USDT", "1d")
         assert r.is_valid
-        assert not r.has_warnings
+        assert r.row_count == 5
+        assert r.symbol == "BTC/USDT"
+        assert r.timeframe == "1d"
+        assert r.exchange == "binance"
+        assert r.start_timestamp is not None
+        assert r.end_timestamp is not None
+        assert r.start_timestamp <= r.end_timestamp
 
-    def test_invalid_result(self) -> None:
-        r = ValidationResult(is_valid=False, errors=["bad thing"], warnings=[])
+    def test_result_timestamps_are_utc(self) -> None:
+        df = _make_df(3)
+        r = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert r.start_timestamp is not None
+        assert r.start_timestamp.tzinfo == timezone.utc
+
+    def test_empty_dataset_result_has_zero_row_count(self) -> None:
+        df = pd.DataFrame(columns=REQUIRED_COLUMNS)
+        r = validate_ohlcv(df, "BTC/USDT", "1d")
         assert not r.is_valid
+        assert r.row_count == 0
+        assert r.start_timestamp is None
+        assert r.end_timestamp is None
 
-    def test_has_warnings(self) -> None:
-        r = ValidationResult(is_valid=True, errors=[], warnings=["gap detected"])
+    def test_schema_failure_result_has_row_count(self) -> None:
+        df = _make_df(3).drop(columns=["close"])
+        r = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not r.is_valid
+        assert r.row_count == 3
+
+    def test_result_is_immutable(self) -> None:
+        r = ValidationResult(is_valid=True)
+        with pytest.raises(Exception):
+            r.is_valid = False  # type: ignore[misc]
+
+    def test_has_warnings_property(self) -> None:
+        r = ValidationResult(is_valid=True, warnings=["gap detected"])
         assert r.has_warnings
+
+    def test_no_warnings_property(self) -> None:
+        r = ValidationResult(is_valid=True)
+        assert not r.has_warnings
 
 
 # ── Happy path ────────────────────────────────────────────────────────────────
@@ -76,6 +108,31 @@ class TestValidOHLCV:
         assert result.is_valid
 
 
+# ── Empty dataset ─────────────────────────────────────────────────────────────
+
+class TestEmptyDataset:
+    def test_empty_dataframe_is_invalid(self) -> None:
+        df = pd.DataFrame(columns=REQUIRED_COLUMNS)
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("empty" in e.lower() for e in result.errors)
+
+    def test_empty_dataframe_emits_event(self) -> None:
+        bus = EventBus()
+        events: list = []
+        bus.subscribe(events.append, EventCategory.VALIDATION)
+        df = pd.DataFrame(columns=REQUIRED_COLUMNS)
+        validate_ohlcv(df, "BTC/USDT", "1d", bus=bus)
+        assert len(events) == 1
+        assert isinstance(events[0], DataValidationFailedEvent)
+
+    def test_empty_dataframe_returns_early(self) -> None:
+        df = pd.DataFrame(columns=REQUIRED_COLUMNS)
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert len(result.errors) == 1  # only the empty error, not cascading failures
+
+
 # ── Schema check ──────────────────────────────────────────────────────────────
 
 class TestSchemaValidation:
@@ -91,14 +148,7 @@ class TestSchemaValidation:
         bus.subscribe(events.append, EventCategory.VALIDATION)
         df = _make_df().drop(columns=["close"])
         validate_ohlcv(df, "BTC/USDT", "1d", bus=bus)
-        assert len(events) == 1
-        assert isinstance(events[0], DataSchemaMismatchEvent)
-
-    def test_multiple_missing_columns_reported(self) -> None:
-        df = _make_df().drop(columns=["volume", "exchange"])
-        result = validate_ohlcv(df, "BTC/USDT", "1d")
-        assert not result.is_valid
-        assert any("volume" in e for e in result.errors)
+        assert any(isinstance(e, DataSchemaMismatchEvent) for e in events)
 
     def test_all_required_columns_accepted(self) -> None:
         df = _make_df()[REQUIRED_COLUMNS]
@@ -132,20 +182,54 @@ class TestNullValidation:
         assert any(isinstance(e, DataValidationFailedEvent) for e in events)
 
 
-# ── UTC timestamp checks ──────────────────────────────────────────────────────
+# ── UTC timestamp enforcement ─────────────────────────────────────────────────
 
-class TestTimestampValidation:
-    def test_naive_timestamps_are_invalid(self) -> None:
+class TestUTCTimestampEnforcement:
+    def test_naive_timestamps_rejected(self) -> None:
         df = _make_df()
-        df["timestamp"] = pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03",
-                                           "2024-01-04", "2024-01-05"])  # naive
+        df["timestamp"] = pd.to_datetime(
+            ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]
+        )  # naive — no tz
         result = validate_ohlcv(df, "BTC/USDT", "1d")
         assert not result.is_valid
-        assert any("UTC" in e or "naive" in e for e in result.errors)
+        assert any("naive" in e.lower() or "timezone" in e.lower() for e in result.errors)
 
-    def test_utc_timestamps_pass(self) -> None:
+    def test_utc_timestamps_accepted(self) -> None:
         df = _make_df()
         assert df["timestamp"].dt.tz is not None
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert result.is_valid
+
+    def test_non_utc_aware_timestamps_rejected(self) -> None:
+        """America/New_York is UTC-aware but not UTC — must be rejected."""
+        from zoneinfo import ZoneInfo
+        dates = pd.date_range("2024-01-01", periods=5, freq="1D", tz=ZoneInfo("America/New_York"))
+        df = _make_df()
+        df["timestamp"] = dates
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("UTC" in e for e in result.errors)
+
+    def test_europe_london_winter_rejected(self) -> None:
+        """Europe/London has offset +0 in winter but is NOT UTC — reject by name."""
+        from zoneinfo import ZoneInfo
+        dates = pd.date_range("2024-01-01", periods=5, freq="1D", tz=ZoneInfo("Europe/London"))
+        df = _make_df()
+        df["timestamp"] = dates
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("UTC" in e for e in result.errors)
+
+    def test_explicit_utc_datetime_accepted(self) -> None:
+        df = _make_df()
+        utc_dates = [
+            datetime(2024, 1, 1, tzinfo=timezone.utc),
+            datetime(2024, 1, 2, tzinfo=timezone.utc),
+            datetime(2024, 1, 3, tzinfo=timezone.utc),
+            datetime(2024, 1, 4, tzinfo=timezone.utc),
+            datetime(2024, 1, 5, tzinfo=timezone.utc),
+        ]
+        df["timestamp"] = pd.DatetimeIndex(utc_dates)
         result = validate_ohlcv(df, "BTC/USDT", "1d")
         assert result.is_valid
 
@@ -153,7 +237,7 @@ class TestTimestampValidation:
 # ── Duplicate timestamps ──────────────────────────────────────────────────────
 
 class TestDuplicateTimestamps:
-    def test_duplicate_timestamp_is_invalid(self) -> None:
+    def test_duplicate_is_invalid(self) -> None:
         df = _make_df()
         df.loc[3, "timestamp"] = df.loc[0, "timestamp"]
         result = validate_ohlcv(df, "BTC/USDT", "1d")
@@ -167,6 +251,45 @@ class TestDuplicateTimestamps:
         assert result.is_valid
 
 
+# ── Strictly increasing timestamps ────────────────────────────────────────────
+
+class TestMonotonicTimestamps:
+    def test_sorted_timestamps_pass(self) -> None:
+        df = _make_df()
+        assert df["timestamp"].is_monotonic_increasing
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert result.is_valid
+
+    def test_unsorted_timestamps_fail(self) -> None:
+        df = _make_df()
+        # Swap rows 1 and 3 to create non-monotonic order
+        df.loc[1, "timestamp"], df.loc[3, "timestamp"] = (
+            df.loc[3, "timestamp"], df.loc[1, "timestamp"]
+        )
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("monotonic" in e.lower() or "increasing" in e.lower() for e in result.errors)
+
+    def test_unsorted_distinct_from_duplicate_error(self) -> None:
+        """Out-of-order timestamps without duplicates should only raise monotonic error."""
+        df = _make_df()
+        df.loc[1, "timestamp"], df.loc[3, "timestamp"] = (
+            df.loc[3, "timestamp"], df.loc[1, "timestamp"]
+        )
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert not any("duplicate" in e for e in result.errors)
+        assert any("monotonic" in e.lower() or "increasing" in e.lower() for e in result.errors)
+
+    def test_duplicate_timestamps_also_trigger_duplicate_error(self) -> None:
+        """Duplicate timestamps trigger the duplicate check, not just monotonic."""
+        df = _make_df()
+        df.loc[3, "timestamp"] = df.loc[0, "timestamp"]  # duplicate
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("duplicate" in e for e in result.errors)
+
+
 # ── OHLCV consistency ─────────────────────────────────────────────────────────
 
 class TestOHLCVConsistency:
@@ -176,6 +299,20 @@ class TestOHLCVConsistency:
         result = validate_ohlcv(df, "BTC/USDT", "1d")
         assert not result.is_valid
         assert any("high < low" in e for e in result.errors)
+
+    def test_open_above_high_is_invalid(self) -> None:
+        df = _make_df()
+        df.loc[2, "open"] = df.loc[2, "high"] + 5.0
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("open" in e for e in result.errors)
+
+    def test_open_below_low_is_invalid(self) -> None:
+        df = _make_df()
+        df.loc[2, "open"] = df.loc[2, "low"] - 5.0
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("open" in e for e in result.errors)
 
     def test_close_above_high_is_invalid(self) -> None:
         df = _make_df()
@@ -226,16 +363,58 @@ class TestOHLCVConsistency:
         assert any(isinstance(e, DataValidationFailedEvent) for e in events)
 
 
+# ── Metadata column validation ────────────────────────────────────────────────
+
+class TestMetadataValidation:
+    def test_empty_symbol_column_is_invalid(self) -> None:
+        df = _make_df()
+        df.loc[1, "symbol"] = ""
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("symbol" in e for e in result.errors)
+
+    def test_mismatched_symbol_is_invalid(self) -> None:
+        df = _make_df()
+        df["symbol"] = "ETH/USDT"  # doesn't match argument
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("symbol" in e for e in result.errors)
+
+    def test_empty_timeframe_column_is_invalid(self) -> None:
+        df = _make_df()
+        df.loc[0, "timeframe"] = ""
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("timeframe" in e for e in result.errors)
+
+    def test_mismatched_timeframe_is_invalid(self) -> None:
+        df = _make_df()
+        df["timeframe"] = "4h"  # doesn't match argument "1d"
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("timeframe" in e for e in result.errors)
+
+    def test_empty_exchange_column_is_invalid(self) -> None:
+        df = _make_df()
+        df.loc[2, "exchange"] = ""
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert not result.is_valid
+        assert any("exchange" in e for e in result.errors)
+
+    def test_valid_metadata_passes(self) -> None:
+        df = _make_df()
+        result = validate_ohlcv(df, "BTC/USDT", "1d")
+        assert result.is_valid
+
+
 # ── Gap detection ─────────────────────────────────────────────────────────────
 
 class TestGapDetection:
     def _make_gapped_df(self) -> pd.DataFrame:
-        """Daily frame with 2024-01-03 missing."""
         dates = [
             pd.Timestamp("2024-01-01", tz="UTC"),
             pd.Timestamp("2024-01-02", tz="UTC"),
-            # gap: 2024-01-03 missing
-            pd.Timestamp("2024-01-04", tz="UTC"),
+            pd.Timestamp("2024-01-04", tz="UTC"),  # 2024-01-03 missing
             pd.Timestamp("2024-01-05", tz="UTC"),
         ]
         return pd.DataFrame({
@@ -250,10 +429,10 @@ class TestGapDetection:
             "exchange": "binance",
         })
 
-    def test_gap_produces_warning(self) -> None:
+    def test_gap_produces_warning_not_error(self) -> None:
         df = self._make_gapped_df()
         result = validate_ohlcv(df, "BTC/USDT", "1d")
-        assert result.is_valid  # gap is advisory, not blocking
+        assert result.is_valid
         assert result.has_warnings
         assert any("missing bar" in w for w in result.warnings)
 
@@ -276,7 +455,7 @@ class TestGapDetection:
 
     def test_unknown_timeframe_skips_gap_check(self) -> None:
         df = _make_df(3)
-        df["timeframe"] = "3d"  # not in _TIMEFRAME_TO_FREQ
+        df["timeframe"] = "3d"
         result = validate_ohlcv(df, "BTC/USDT", "3d")
         assert result.is_valid
         assert not result.has_warnings
@@ -290,12 +469,12 @@ class TestEventBusIntegration:
         events: list = []
         bus.subscribe(events.append, EventCategory.VALIDATION)
         df = _make_df()
-        df.loc[0, "high"] = df.loc[0, "low"] - 1.0  # high < low
-        df.loc[1, "volume"] = -5.0                    # negative volume
+        df.loc[0, "high"] = df.loc[0, "low"] - 1.0
+        df.loc[1, "volume"] = -5.0
         validate_ohlcv(df, "BTC/USDT", "1d", bus=bus)
         assert len(events) >= 2
 
-    def test_no_events_emitted_for_valid_data(self) -> None:
+    def test_no_events_for_valid_data(self) -> None:
         bus = EventBus()
         events: list = []
         bus.subscribe(events.append)
