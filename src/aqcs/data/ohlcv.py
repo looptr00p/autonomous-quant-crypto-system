@@ -15,6 +15,7 @@ import pyarrow.parquet as pq
 
 from aqcs.utils.config import get_settings, load_config
 from aqcs.utils.logging import configure_logging, get_logger
+from aqcs.data.validator import validate_ohlcv
 
 logger = get_logger(__name__)
 
@@ -175,6 +176,13 @@ def main(
     if df.empty:
         logger.error("download_failed_empty_result", symbol=symbol)
         raise SystemExit(1)
+
+    result = validate_ohlcv(df, symbol, timeframe, component="aqcs.data.ohlcv")
+    if not result.is_valid:
+        logger.error("download_validation_failed", symbol=symbol, errors=result.errors)
+        raise SystemExit(1)
+    if result.has_warnings:
+        logger.warning("download_validation_warnings", symbol=symbol, warnings=result.warnings)
 
     dest = save_parquet(df, out, symbol, timeframe)
     logger.info("download_complete", file=str(dest), rows=len(df))
