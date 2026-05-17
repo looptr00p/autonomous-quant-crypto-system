@@ -153,7 +153,7 @@ The following sequence describes the canonical path from raw market data to logg
 │ 8. Logs / Events                                                     │
 │    Format: JSON (structlog), one record per line                     │
 │    Location: logs/<date>.jsonl                                       │
-│    Schema: BaseEvent subclasses (src/utils/events.py)                │
+│    Schema: BaseEvent subclasses (src/aqcs/utils/events.py)                │
 └──────────────────────────────┬───────────────────────────────────────┘
                                │  OversightEvent subset only
                                ▼
@@ -173,7 +173,7 @@ The following sequence describes the canonical path from raw market data to logg
 
 ### 4.1 Data Layer
 
-**Location:** `src/data/`
+**Location:** `src/aqcs/data/`
 
 #### Responsibility
 
@@ -212,7 +212,7 @@ exchange    : string               — e.g. "binance"
 
 - Transform, normalise, or resample data. Raw means raw.
 - Apply business logic to decide which symbols to download.
-- Call any module other than `src/utils/`.
+- Call any module other than `src/aqcs/utils/`.
 - Overwrite existing Parquet files without an explicit `--overwrite` flag.
 - Cache exchange connections across process boundaries.
 
@@ -230,7 +230,7 @@ exchange    : string               — e.g. "binance"
 
 ### 4.2 Feature Layer
 
-**Location:** `src/features/`
+**Location:** `src/aqcs/features/`
 
 #### Responsibility
 
@@ -275,7 +275,7 @@ Apply deterministic, stateless transformations to validated OHLCV data to produc
 
 ### 4.3 Signal Engine
 
-**Location:** `src/signals/`
+**Location:** `src/aqcs/signals/`
 
 #### Responsibility
 
@@ -317,7 +317,7 @@ Translate feature vectors into directional signals for each instrument in the un
 
 ### 4.4 Portfolio Engine
 
-**Location:** `src/portfolio/`
+**Location:** `src/aqcs/portfolio/`
 
 #### Responsibility
 
@@ -364,7 +364,7 @@ Combine signals from multiple instruments into a coherent set of target portfoli
 
 ### 4.5 Risk Engine
 
-**Location:** `src/risk/`
+**Location:** `src/aqcs/risk/`
 
 #### Responsibility
 
@@ -414,7 +414,7 @@ Apply risk constraints to portfolio targets and return modified (potentially red
 
 ### 4.6 Execution Engine
 
-**Location:** `src/execution/`
+**Location:** `src/aqcs/execution/`
 
 #### Responsibility
 
@@ -464,7 +464,7 @@ In Phase 1: translate risk-checked target weights into hypothetical orders, log 
 
 ### 4.7 Backtesting Engine
 
-**Location:** `src/backtesting/`
+**Location:** `src/aqcs/backtesting/`
 
 #### Responsibility
 
@@ -515,7 +515,7 @@ Simulate the execution of a strategy over a historical period and compute perfor
 
 ### 4.8 Monitoring
 
-**Location:** `src/monitoring/`
+**Location:** `src/aqcs/monitoring/`
 
 #### Responsibility
 
@@ -566,7 +566,7 @@ Detect data quality problems, system health degradation, and pipeline anomalies.
 
 ### 4.9 LLM Oversight
 
-**Location:** `src/llm_oversight/`
+**Location:** `src/aqcs/llm_oversight/`
 
 #### Responsibility
 
@@ -588,8 +588,8 @@ Observe the system's activity through the event stream, produce human-readable n
 
 #### What this component must NOT do
 
-- **Generate trading signals.** The LLM has no path to `src/signals/`.
-- **Modify portfolio weights or risk parameters.** Read-only access to `src/utils/` only.
+- **Generate trading signals.** The LLM has no path to `src/aqcs/signals/`.
+- **Modify portfolio weights or risk parameters.** Read-only access to `src/aqcs/utils/` only.
 - **Call exchange APIs.** No ccxt or HTTP client import in this module.
 - **Write to `data/`, `configs/`, or `src/` directories.**
 - **Execute code in the Quant Core.** It may read event records; it may not call functions.
@@ -611,21 +611,21 @@ Observe the system's activity through the event stream, produce human-readable n
 The following import relationships are permitted. Any other import between components is a violation.
 
 ```
-src/data/           → src/utils/
-src/features/       → src/data/, src/utils/
-src/signals/        → src/features/, src/utils/
-src/portfolio/      → src/signals/, src/utils/
-src/risk/           → src/portfolio/, src/utils/
-src/execution/      → src/risk/, src/utils/
-src/backtesting/    → src/data/, src/features/, src/signals/,
-                      src/portfolio/, src/risk/, src/execution/, src/utils/
-src/monitoring/     → src/data/, src/utils/
-src/llm_oversight/  → src/utils/ only
+src/aqcs/data/           → src/aqcs/utils/
+src/aqcs/features/       → src/aqcs/data/, src/aqcs/utils/
+src/aqcs/signals/        → src/aqcs/features/, src/aqcs/utils/
+src/aqcs/portfolio/      → src/aqcs/signals/, src/aqcs/utils/
+src/aqcs/risk/           → src/aqcs/portfolio/, src/aqcs/utils/
+src/aqcs/execution/      → src/aqcs/risk/, src/aqcs/utils/
+src/aqcs/backtesting/    → src/aqcs/data/, src/aqcs/features/, src/aqcs/signals/,
+                      src/aqcs/portfolio/, src/aqcs/risk/, src/aqcs/execution/, src/aqcs/utils/
+src/aqcs/monitoring/     → src/aqcs/data/, src/aqcs/utils/
+src/aqcs/llm_oversight/  → src/aqcs/utils/ only
 ```
 
 **No circular imports.** If a circular dependency appears, the design is wrong. Refactor before merging.
 
-**`src/utils/` has no imports from other `src/` packages.** It is the leaf of the dependency tree.
+**`src/aqcs/utils/` has no imports from other `src/` packages.** It is the leaf of the dependency tree.
 
 ---
 
@@ -665,10 +665,10 @@ The only permissible output of the LLM Oversight layer is human-readable Markdow
 
 The boundary is not enforced solely by convention. It is enforced by:
 
-1. **Import restriction** — `src/llm_oversight/` imports only from `src/utils/`. Imports from any other `src/` package fail `tests/architecture/test_dependency_boundaries.py`, which runs on every push in CI.
-2. **No exchange client** — `ccxt` is not imported anywhere in `src/llm_oversight/`.
+1. **Import restriction** — `src/aqcs/llm_oversight/` imports only from `src/aqcs/utils/`. Imports from any other `src/` package fail `tests/architecture/test_dependency_boundaries.py`, which runs on every push in CI.
+2. **No exchange client** — `ccxt` is not imported anywhere in `src/aqcs/llm_oversight/`.
 3. **No write access to data/** — The observer function signature accepts events and returns `None`.
-4. **Code review** — Any pull request that adds a call from `src/llm_oversight/` to a Quant Core function is rejected.
+4. **Code review** — Any pull request that adds a call from `src/aqcs/llm_oversight/` to a Quant Core function is rejected.
 
 ---
 
