@@ -116,7 +116,7 @@ Rules:
 ### 2.5 Usage
 
 ```python
-from src.utils.logging import get_logger
+from aqcs.utils.logging import get_logger
 import structlog
 
 logger = get_logger(__name__)

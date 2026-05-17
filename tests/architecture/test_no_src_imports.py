@@ -1,7 +1,7 @@
 """Verify that no Python file in the repository imports from the legacy src.* namespace.
 
 All internal imports must use aqcs.* after the package migration.
-This test fails if any src.X import is found anywhere in src/ or tests/.
+This test fails if any src.X import is found anywhere in src/, tests/, or scripts/.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _ALL_PY_FILES = sorted(
     list((_PROJECT_ROOT / "src").rglob("*.py"))
     + list((_PROJECT_ROOT / "tests").rglob("*.py"))
+    + list((_PROJECT_ROOT / "scripts").rglob("*.py"))
 )
 
 

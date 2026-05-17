@@ -117,7 +117,7 @@ Attempting to use a blocked feature raises `PhaseConstraintError` immediately.
 ### Phase Guard
 - `src/aqcs/utils/phase_guard.py` — blocks prohibited capabilities
 - Fails closed for unknown phases (PhaseConstraintError)
-- Wired into `_build_exchange()` in `ohlcv.py`
+- Verified by `tests/governance/test_anti_live_trading.py` and `tests/unit/test_phase_guard.py` at CI time
 
 ### Event Schema
 - `src/aqcs/utils/events.py` — typed, immutable, UTC-enforced event records
