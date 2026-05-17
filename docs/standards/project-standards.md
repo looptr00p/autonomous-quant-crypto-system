@@ -289,7 +289,6 @@ Every source module in `src/` has a corresponding test file in `tests/unit/`:
 ```
 src/data/ohlcv.py           →  tests/unit/test_ohlcv.py
 src/utils/config.py         →  tests/unit/test_config.py
-src/features/rolling.py     →  tests/unit/test_rolling.py
 ```
 
 ### 5.3 What must be tested
