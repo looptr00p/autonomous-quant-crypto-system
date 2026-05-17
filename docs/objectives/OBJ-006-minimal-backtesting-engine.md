@@ -23,7 +23,7 @@ Implement the first deterministic backtesting engine for AQCS, satisfying the st
 - 8 required metrics (total_return, CAGR, max_drawdown, Sharpe, volatility, trade_count, win_rate, exposure)
 - ExperimentTracker integration (optional)
 - Input validation (empty data, missing columns, timestamp ordering, no overlap)
-- 39 tests verifying all critical invariants
+- 52 tests verifying all critical invariants (including OHLCV quality, net win_rate, date validation)
 
 Not in scope: portfolio construction, multi-asset, shorting, leverage, optimisation, intrabar simulation.
 
@@ -67,8 +67,12 @@ Not in scope: portfolio construction, multi-asset, shorting, leverage, optimisat
 - [x] No pyramiding: one position at a time (tested)
 - [x] 8 required metrics computed
 - [x] ExperimentRecord created when tracker provided
-- [x] 39 tests passing
+- [x] 52 tests passing
 - [x] Architecture boundary enforced
+- [x] OHLCV quality validated before simulation (negative prices, high<low, negative volume all rejected)
+- [x] win_rate reflects net P&L after fees
+- [x] Date range validation (format YYYY-MM-DD, start ≤ end)
+- [x] ExperimentTracker properly typed via TYPE_CHECKING
 
 ---
 

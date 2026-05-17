@@ -87,10 +87,16 @@ def compute_metrics(
     sell_trades = [t for t in trades if t.side == "sell"]
     trade_count = len(buy_trades)  # number of completed round trips (entries)
 
-    # ── Win rate ──────────────────────────────────────────────────────────────
+    # ── Win rate (net of fees) ────────────────────────────────────────────────
+    # Net P&L = (sell.fill_price - buy.fill_price) * buy.quantity - buy.fee - sell.fee
+    # A trade is a win only if net P&L > 0 (after all costs).
+    # Using gross fill price comparison would mark fee-losing trades as wins.
     pairs = list(zip(buy_trades, sell_trades))
     if pairs:
-        wins = sum(1 for buy, sell in pairs if sell.fill_price > buy.fill_price)
+        def _net_pnl(buy: Trade, sell: Trade) -> float:
+            gross = (sell.fill_price - buy.fill_price) * buy.quantity
+            return gross - buy.fee - sell.fee
+        wins = sum(1 for buy, sell in pairs if _net_pnl(buy, sell) > 0)
         win_rate = wins / len(pairs)
     else:
         win_rate = nan

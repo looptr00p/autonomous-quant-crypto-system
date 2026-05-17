@@ -111,6 +111,31 @@ class TestBacktestConfig:
         cfg = BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=5.0)
         assert cfg.slippage_factor() == pytest.approx(0.0005)
 
+    def test_valid_date_range_accepted(self) -> None:
+        cfg = BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                             start_date="2024-01-01", end_date="2024-12-31")
+        assert cfg.start_date == "2024-01-01"
+
+    def test_start_after_end_rejected(self) -> None:
+        with pytest.raises(Exception, match="end_date"):
+            BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                           start_date="2024-12-31", end_date="2024-01-01")
+
+    def test_invalid_start_date_format_rejected(self) -> None:
+        with pytest.raises(Exception, match="YYYY-MM-DD"):
+            BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                           start_date="01/01/2024")
+
+    def test_invalid_end_date_format_rejected(self) -> None:
+        with pytest.raises(Exception, match="YYYY-MM-DD"):
+            BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                           end_date="2024-13-01")
+
+    def test_equal_start_and_end_accepted(self) -> None:
+        cfg = BacktestConfig(initial_capital=10_000.0, fee_bps=0.0, slippage_bps=0.0,
+                             start_date="2024-06-15", end_date="2024-06-15")
+        assert cfg.start_date == cfg.end_date
+
 
 # ── Input validation ──────────────────────────────────────────────────────────
 
@@ -476,3 +501,94 @@ class TestExperimentTracking:
         result = run_backtest(ohlcv, sig, _zero_cost_config(), tracker=None)
         assert result.experiment_id == ""
         assert isinstance(result, BacktestResult)
+
+
+# ── OHLCV quality validation (Fix 1) ─────────────────────────────────────────
+
+class TestOHLCVQualityValidation:
+    """Verify that run_backtest() rejects invalid OHLCV before simulation."""
+
+    def _make_invalid(self, **overrides: float) -> pd.DataFrame:
+        ohlcv = _make_ohlcv([100.0, 105.0, 110.0])
+        for col, val in overrides.items():
+            ohlcv.loc[1, col] = val  # type: ignore[index]
+        return ohlcv
+
+    def test_negative_open_rejected(self) -> None:
+        ohlcv = self._make_invalid(open=-1.0, low=-1.0)
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        with pytest.raises(ValueError, match="quality validation"):
+            run_backtest(ohlcv, sig, _zero_cost_config())
+
+    def test_zero_close_rejected(self) -> None:
+        ohlcv = self._make_invalid(close=0.0)
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        with pytest.raises(ValueError, match="quality validation"):
+            run_backtest(ohlcv, sig, _zero_cost_config())
+
+    def test_high_lt_low_rejected(self) -> None:
+        ohlcv = self._make_invalid(high=90.0, low=100.0)
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        with pytest.raises(ValueError, match="quality validation"):
+            run_backtest(ohlcv, sig, _zero_cost_config())
+
+    def test_negative_volume_rejected(self) -> None:
+        ohlcv = self._make_invalid(volume=-1.0)
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        with pytest.raises(ValueError, match="quality validation"):
+            run_backtest(ohlcv, sig, _zero_cost_config())
+
+    def test_valid_ohlcv_passes_through(self) -> None:
+        ohlcv = _make_ohlcv([100.0, 105.0, 110.0])
+        sig = _signals(ohlcv, [SignalDirection.NEUTRAL] * 3)
+        result = run_backtest(ohlcv, sig, _zero_cost_config())  # must not raise
+        assert isinstance(result, BacktestResult)
+
+
+# ── Net win_rate semantics (Fix 2) ────────────────────────────────────────────
+
+class TestNetWinRate:
+    def test_win_rate_accounts_for_fees(self) -> None:
+        """A trade that is gross-positive but net-negative (fee > price gain)
+        must be counted as a LOSS, not a win."""
+        # Buy at 100 (fee_bps=1000 = 10%), sell at 101 (gross gain ~1%)
+        # Gross: (101-100)*qty > 0 → old code would mark this as win
+        # Net: gross - buy_fee - sell_fee < 0 → must be a loss
+        closes = [100.0, 100.0, 101.0, 101.0, 101.0]
+        opens  = [100.0, 100.0, 100.0, 101.0, 101.0]
+        ohlcv = _make_ohlcv(closes, opens)
+        sig = _signals(ohlcv, [
+            SignalDirection.NEUTRAL, SignalDirection.LONG,
+            SignalDirection.LONG, SignalDirection.NEUTRAL,
+            SignalDirection.NEUTRAL,
+        ])
+        # fee_bps=1000 means 10% per side — completely swamps a 1% price gain
+        cfg = BacktestConfig(initial_capital=10_000.0, fee_bps=1000.0, slippage_bps=0.0)
+        result = run_backtest(ohlcv, sig, cfg)
+        # Should be a net loss → win_rate = 0.0 (not 1.0)
+        assert result.metrics["win_rate"] == pytest.approx(0.0), (
+            "win_rate should be 0 when fees exceed gross profit (net loss trade)"
+        )
+
+    def test_win_rate_correct_for_profitable_trade(self) -> None:
+        """A trade that is net-positive (price gain >> fees) is a win."""
+        closes = [100.0, 100.0, 200.0, 200.0, 200.0]
+        opens  = [100.0, 100.0, 100.0, 200.0, 200.0]
+        ohlcv = _make_ohlcv(closes, opens)
+        sig = _signals(ohlcv, [
+            SignalDirection.NEUTRAL, SignalDirection.LONG,
+            SignalDirection.LONG, SignalDirection.NEUTRAL,
+            SignalDirection.NEUTRAL,
+        ])
+        # fee_bps=10 (0.10%) — tiny vs 100% price gain
+        cfg = BacktestConfig(initial_capital=10_000.0, fee_bps=10.0, slippage_bps=0.0)
+        result = run_backtest(ohlcv, sig, cfg)
+        assert result.metrics["win_rate"] == pytest.approx(1.0)
+
+    def test_win_rate_nan_when_no_completed_trades(self) -> None:
+        ohlcv = _make_ohlcv([100.0, 100.0, 110.0])
+        sig = _signals(ohlcv, [
+            SignalDirection.NEUTRAL, SignalDirection.LONG, SignalDirection.LONG,
+        ])
+        result = run_backtest(ohlcv, sig, _zero_cost_config())
+        assert math.isnan(result.metrics["win_rate"])

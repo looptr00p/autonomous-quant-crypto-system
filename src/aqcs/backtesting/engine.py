@@ -16,7 +16,9 @@ Phase 1 constraints (intentional, not temporary):
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -34,8 +36,12 @@ from aqcs.backtesting.models import (
     Trade,
 )
 from aqcs.backtesting.validation import validate_backtest_inputs
+from aqcs.data.validator import validate_ohlcv
 from aqcs.utils.events import SignalDirection
 from aqcs.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from aqcs.experiments.tracker import ExperimentTracker
 
 logger = get_logger(__name__)
 
@@ -47,31 +53,50 @@ def run_backtest(
     signals: pd.Series,
     config: BacktestConfig,
     *,
-    tracker: object | None = None,
+    tracker: "ExperimentTracker | None" = None,
     dataset_paths: list[str] | None = None,
-    bus: object | None = None,
     experiment_name: str = "",
 ) -> BacktestResult:
     """Run a deterministic backtest and return a complete result.
 
     Args:
-        ohlcv: Validated OHLCV DataFrame with UTC timestamps. Must pass
-               the data validator before being passed here.
+        ohlcv: OHLCV DataFrame with UTC timestamps. This function validates
+               both structure (columns, timestamps) AND data quality (prices,
+               OHLCV consistency) before simulation. Do not pass unvalidated data.
         signals: Series of SignalDirection values indexed by UTC timestamp.
-                 Signals must be aligned to the OHLCV timestamps.
-                 Signal at timestamp T executes at the OPEN of bar T+1.
+                 Aligned to OHLCV timestamps. Signal at T executes at T+1 open.
         config: BacktestConfig specifying capital, fees, slippage, dates.
-        tracker: Optional ExperimentTracker for reproducibility records.
-        dataset_paths: Optional list of data file paths for fingerprinting.
-        bus: Optional EventBus for event emission.
+        tracker: Optional ExperimentTracker. If provided, creates an
+                 ExperimentRecord before simulation and updates it after.
+        dataset_paths: Optional file paths for dataset fingerprinting.
         experiment_name: Name for the ExperimentRecord (if tracker provided).
 
     Returns:
         BacktestResult with equity curve, trade log, metrics, and experiment ID.
+
+    Raises:
+        ValueError: If OHLCV data fails structural or quality validation,
+                    or if the date range contains no bars.
     """
+    # ── 1. Structural validation (columns, timestamps, overlap) ───────────────
     validate_backtest_inputs(ohlcv, signals, config)
 
-    # ── Date filtering ────────────────────────────────────────────────────────
+    # ── 2. OHLCV data quality validation ─────────────────────────────────────
+    # Extract symbol and timeframe from data for the validator.
+    symbol = str(ohlcv["symbol"].iloc[0]) if "symbol" in ohlcv.columns else ""
+    timeframe = str(ohlcv["timeframe"].iloc[0]) if "timeframe" in ohlcv.columns else "1d"
+    quality_result = validate_ohlcv(ohlcv, symbol, timeframe)
+    if not quality_result.is_valid:
+        raise ValueError(
+            "OHLCV data failed quality validation. "
+            "Fix the data before backtesting:\n"
+            + "\n".join(f"  • {e}" for e in quality_result.errors)
+        )
+    if quality_result.has_warnings:
+        for w in quality_result.warnings:
+            logger.warning("ohlcv_quality_warning", warning=w, symbol=symbol)
+
+    # ── 3. Date filtering ─────────────────────────────────────────────────────
     ohlcv_indexed = ohlcv.set_index("timestamp").sort_index()
 
     if config.start_date:
@@ -88,20 +113,19 @@ def run_backtest(
             f"[{config.start_date or 'start'}, {config.end_date or 'end'}]"
         )
 
-    # ── Signal alignment and shift ────────────────────────────────────────────
-    # Align signals to the filtered OHLCV index.
+    # ── 4. Signal alignment and shift ────────────────────────────────────────
     # .shift(1) enforces next-bar execution:
     #   shifted[T] = signals[T-1] = the signal to ACT ON at bar T.
     signal_aligned = signals.reindex(ohlcv_indexed.index)
     shifted = signal_aligned.shift(1)
 
-    # ── Experiment tracking setup ─────────────────────────────────────────────
+    # ── 5. Experiment tracking setup ─────────────────────────────────────────
     experiment_id = ""
     record = None
     if tracker is not None:
         try:
             _name = experiment_name or f"backtest_{config.start_date or 'all'}_{config.end_date or 'all'}"
-            record = tracker.create_experiment(  # type: ignore[union-attr]
+            record = tracker.create_experiment(
                 _name,
                 experiment_type="backtest",
                 parameters={
@@ -126,14 +150,14 @@ def run_backtest(
     except Exception as exc:
         if tracker is not None and record is not None:
             try:
-                tracker.fail_experiment(record.experiment_id, reason=str(exc))  # type: ignore[union-attr]
+                tracker.fail_experiment(record.experiment_id, reason=str(exc))
             except Exception:
                 pass
         raise
 
     if tracker is not None and record is not None:
         try:
-            tracker.complete_experiment(  # type: ignore[union-attr]
+            tracker.complete_experiment(
                 record.experiment_id,
                 metrics={k: float(v) for k, v in result.metrics.items() if not _is_nan(v)},
             )
@@ -145,7 +169,6 @@ def run_backtest(
 
 def _is_nan(v: object) -> bool:
     try:
-        import math
         return math.isnan(float(v))  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return False
@@ -170,7 +193,6 @@ def _simulate(
 
         # ── Execute based on previous bar's signal ────────────────────────────
         if _is_long(exec_signal) and position == 0.0:
-            # Buy at next-bar open
             fill = buy_fill_price(open_price, config)
             qty = compute_buy_quantity(cash, fill, config)
             if qty > 0:
@@ -192,7 +214,6 @@ def _simulate(
                     ))
 
         elif not _is_long(exec_signal) and position > 0.0:
-            # Sell at next-bar open
             fill = sell_fill_price(open_price, config)
             value = position * fill
             fee = compute_fee(value, config)
