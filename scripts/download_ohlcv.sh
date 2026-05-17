@@ -20,7 +20,7 @@ fi
 
 for sym in $SYMBOLS; do
   echo "Downloading $sym $TIMEFRAME from $START..."
-  python -m src.data.ohlcv \
+  python -m aqcs.data.ohlcv \
     --symbol "$sym" \
     --timeframe "$TIMEFRAME" \
     --start "$START" \
