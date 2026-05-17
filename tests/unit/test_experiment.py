@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from aqcs.experiments.fingerprint import (
     fingerprint_dataset,
@@ -30,11 +31,11 @@ from aqcs.utils.events import (
     ExperimentStartedEvent,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _make_record(**kwargs) -> ExperimentRecord:
@@ -48,6 +49,7 @@ def _make_record(**kwargs) -> ExperimentRecord:
 
 # ── ExperimentStatus ──────────────────────────────────────────────────────────
 
+
 class TestExperimentStatus:
     def test_all_required_statuses_exist(self) -> None:
         expected = {"created", "running", "completed", "failed", "cancelled"}
@@ -60,6 +62,7 @@ class TestExperimentStatus:
 
 
 # ── ExperimentRecord ──────────────────────────────────────────────────────────
+
 
 class TestExperimentRecord:
     def test_creation_with_required_fields(self) -> None:
@@ -98,13 +101,14 @@ class TestExperimentRecord:
 
     def test_non_utc_timestamp_rejected(self) -> None:
         from zoneinfo import ZoneInfo
+
         ny = datetime(2024, 1, 1, tzinfo=ZoneInfo("America/New_York"))
         with pytest.raises(Exception, match="UTC"):
             _make_record(timestamp_started_utc=ny)
 
     def test_utc_timestamp_accepted(self) -> None:
-        rec = _make_record(timestamp_started_utc=datetime(2024, 6, 1, tzinfo=timezone.utc))
-        assert rec.timestamp_started_utc.tzinfo == timezone.utc
+        rec = _make_record(timestamp_started_utc=datetime(2024, 6, 1, tzinfo=UTC))
+        assert rec.timestamp_started_utc.tzinfo == UTC
 
     def test_json_serializable(self) -> None:
         rec = _make_record(parameters={"lr": 0.01}, tags=["baseline"])
@@ -115,11 +119,23 @@ class TestExperimentRecord:
     def test_all_required_fields_present(self) -> None:
         rec = _make_record()
         required = [
-            "experiment_id", "experiment_name", "experiment_type", "status",
-            "timestamp_started_utc", "timestamp_completed_utc",
-            "git_commit_hash", "python_version", "platform",
-            "config_path", "dataset_fingerprint", "dataset_paths",
-            "parameters", "metrics", "tags", "notes", "artifacts",
+            "experiment_id",
+            "experiment_name",
+            "experiment_type",
+            "status",
+            "timestamp_started_utc",
+            "timestamp_completed_utc",
+            "git_commit_hash",
+            "python_version",
+            "platform",
+            "config_path",
+            "dataset_fingerprint",
+            "dataset_paths",
+            "parameters",
+            "metrics",
+            "tags",
+            "notes",
+            "artifacts",
             "duration_seconds",
         ]
         data = rec.model_dump()
@@ -133,6 +149,7 @@ class TestExperimentRecord:
 
 
 # ── ExperimentTracker ─────────────────────────────────────────────────────────
+
 
 class TestExperimentTracker:
     def test_create_experiment_returns_running_record(self, tmp_path: Path) -> None:
@@ -169,7 +186,7 @@ class TestExperimentTracker:
         rec = tracker.create_experiment("ts_test")
         completed = tracker.complete_experiment(rec.experiment_id)
         assert completed.timestamp_completed_utc is not None
-        assert completed.timestamp_completed_utc.tzinfo == timezone.utc
+        assert completed.timestamp_completed_utc.tzinfo == UTC
 
     def test_complete_experiment_computes_duration(self, tmp_path: Path) -> None:
         tracker = ExperimentTracker(tmp_path)
@@ -271,6 +288,7 @@ class TestExperimentTracker:
 
 # ── EventBus integration ──────────────────────────────────────────────────────
 
+
 class TestEventBusIntegration:
     def test_started_event_emitted_on_create(self, tmp_path: Path) -> None:
         bus = EventBus()
@@ -307,6 +325,7 @@ class TestEventBusIntegration:
 
 # ── Git hash capture ──────────────────────────────────────────────────────────
 
+
 class TestGitHashCapture:
     def test_returns_string_always(self) -> None:
         result = get_git_commit_hash()
@@ -334,6 +353,7 @@ class TestGitHashCapture:
 
 
 # ── Dataset fingerprinting ────────────────────────────────────────────────────
+
 
 class TestDatasetFingerprinting:
     def test_fingerprint_file_returns_hex_string(self, tmp_path: Path) -> None:
@@ -388,6 +408,7 @@ class TestDatasetFingerprinting:
 
 # ── Local storage ─────────────────────────────────────────────────────────────
 
+
 class TestLocalStorage:
     def test_save_creates_json_file(self, tmp_path: Path) -> None:
         rec = _make_record()
@@ -396,7 +417,7 @@ class TestLocalStorage:
         assert path.suffix == ".json"
 
     def test_save_creates_date_partitioned_directory(self, tmp_path: Path) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rec = _make_record(timestamp_started_utc=now)
         path = save_experiment_json(rec, tmp_path)
         date_str = now.strftime("%Y-%m-%d")
@@ -464,6 +485,7 @@ class TestLocalStorage:
 
 # ── JSON serializability enforcement ─────────────────────────────────────────
 
+
 class TestJSONSerializability:
     def test_dict_parameters_accepted(self) -> None:
         rec = _make_record(parameters={"lookback": 90, "threshold": 0.02, "name": "v1"})
@@ -478,7 +500,7 @@ class TestJSONSerializability:
             _make_record(parameters={"obj": object()})
 
     def test_lambda_in_parameters_rejected(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             _make_record(parameters={"fn": lambda x: x})
 
     def test_float_metric_accepted(self) -> None:
@@ -517,6 +539,7 @@ class TestJSONSerializability:
 
 # ── Portable fingerprinting with dataset_root ─────────────────────────────────
 
+
 class TestPortableFingerprinting:
     def test_fingerprint_with_dataset_root(self, tmp_path: Path) -> None:
         root = tmp_path / "data"
@@ -554,9 +577,8 @@ class TestPortableFingerprinting:
         f2 = root / "y.parquet"
         f1.write_bytes(b"file x")
         f2.write_bytes(b"file y")
-        assert (
-            fingerprint_dataset([f1, f2], dataset_root=root)
-            == fingerprint_dataset([f2, f1], dataset_root=root)
+        assert fingerprint_dataset([f1, f2], dataset_root=root) == fingerprint_dataset(
+            [f2, f1], dataset_root=root
         )
 
     def test_missing_file_with_dataset_root_returns_empty(self) -> None:
@@ -566,6 +588,7 @@ class TestPortableFingerprinting:
 
 
 # ── repo_root in git hash capture ─────────────────────────────────────────────
+
 
 class TestGitHashWithRepoRoot:
     def test_repo_root_passed_as_cwd(self, tmp_path: Path) -> None:
@@ -593,9 +616,11 @@ class TestGitHashWithRepoRoot:
 
 # ── Generic ExperimentStartedEvent ───────────────────────────────────────────
 
+
 class TestGenericExperimentEvent:
     def test_started_event_has_no_trading_fields(self, tmp_path: Path) -> None:
         from aqcs.utils.events import ExperimentStartedEvent
+
         ev = ExperimentStartedEvent(
             component="aqcs.experiments.tracker",
             experiment_name="test",
@@ -613,6 +638,7 @@ class TestGenericExperimentEvent:
 
     def test_started_event_emitted_with_generic_fields(self, tmp_path: Path) -> None:
         from aqcs.utils.events import ExperimentStartedEvent
+
         bus = EventBus()
         events: list = []
         bus.subscribe(events.append)

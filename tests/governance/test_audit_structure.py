@@ -48,12 +48,13 @@ def test_audits_directory_exists() -> None:
 
 
 def test_audits_readme_exists() -> None:
-    assert (_AUDITS_DIR / "README.md").is_file(), (
-        "docs/audits/README.md must exist with naming convention and format docs"
-    )
+    assert (
+        _AUDITS_DIR / "README.md"
+    ).is_file(), "docs/audits/README.md must exist with naming convention and format docs"
 
 
 # Parametrized tests — pass trivially when no AUD-*.md files exist.
+
 
 @pytest.mark.parametrize(
     "aud_file",
@@ -78,9 +79,7 @@ def test_audit_has_required_sections(aud_file: Path) -> None:
 def test_audit_has_aud_id(aud_file: Path) -> None:
     content = aud_file.read_text(encoding="utf-8")
     ids_found = re.findall(r"AUD-\d+", content)
-    assert ids_found, (
-        f"{aud_file.name}: must contain an Audit ID in AUD-NNN format"
-    )
+    assert ids_found, f"{aud_file.name}: must contain an Audit ID in AUD-NNN format"
 
 
 @pytest.mark.parametrize(
@@ -124,6 +123,4 @@ def test_audit_references_existing_objectives_or_tasks(aud_file: Path) -> None:
     for ref in sorted(obj_refs):
         if not list(obj_dir.glob(f"{ref}-*.md")):
             missing.append(ref)
-    assert not missing, (
-        f"{aud_file.name}: references objectives that do not exist: {missing}"
-    )
+    assert not missing, f"{aud_file.name}: references objectives that do not exist: {missing}"

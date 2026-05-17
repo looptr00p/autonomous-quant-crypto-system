@@ -59,9 +59,9 @@ def test_registry_has_at_least_one_agent(registry: dict) -> None:
 @pytest.mark.parametrize("field", REQUIRED_AGENT_FIELDS)
 def test_all_agents_have_required_field(registry: dict, field: str) -> None:
     for agent in registry["agents"]:
-        assert field in agent, (
-            f"Agent '{agent.get('agent_id', '?')}' is missing required field '{field}'"
-        )
+        assert (
+            field in agent
+        ), f"Agent '{agent.get('agent_id', '?')}' is missing required field '{field}'"
 
 
 def test_agent_ids_are_unique(registry: dict) -> None:
@@ -72,9 +72,9 @@ def test_agent_ids_are_unique(registry: dict) -> None:
 
 def test_agent_ids_are_non_empty_strings(registry: dict) -> None:
     for agent in registry["agents"]:
-        assert isinstance(agent["agent_id"], str) and agent["agent_id"].strip(), (
-            f"agent_id must be a non-empty string, got: {agent.get('agent_id')!r}"
-        )
+        assert (
+            isinstance(agent["agent_id"], str) and agent["agent_id"].strip()
+        ), f"agent_id must be a non-empty string, got: {agent.get('agent_id')!r}"
 
 
 def test_ai_agents_have_non_empty_forbidden_actions(registry: dict) -> None:

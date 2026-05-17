@@ -17,7 +17,8 @@ Phase 1 constraints (intentional, not temporary):
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from contextlib import suppress
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-_UTC = timezone.utc
+_UTC = UTC
 
 
 def run_backtest(
@@ -53,7 +54,7 @@ def run_backtest(
     signals: pd.Series,
     config: BacktestConfig,
     *,
-    tracker: "ExperimentTracker | None" = None,
+    tracker: ExperimentTracker | None = None,
     dataset_paths: list[str] | None = None,
     experiment_name: str = "",
 ) -> BacktestResult:
@@ -104,7 +105,9 @@ def run_backtest(
         ohlcv_indexed = ohlcv_indexed[ohlcv_indexed.index >= start]
 
     if config.end_date:
-        end = pd.Timestamp(config.end_date, tz="UTC") + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        end = (
+            pd.Timestamp(config.end_date, tz="UTC") + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
         ohlcv_indexed = ohlcv_indexed[ohlcv_indexed.index <= end]
 
     if ohlcv_indexed.empty:
@@ -124,7 +127,10 @@ def run_backtest(
     record = None
     if tracker is not None:
         try:
-            _name = experiment_name or f"backtest_{config.start_date or 'all'}_{config.end_date or 'all'}"
+            _name = (
+                experiment_name
+                or f"backtest_{config.start_date or 'all'}_{config.end_date or 'all'}"
+            )
             record = tracker.create_experiment(
                 _name,
                 experiment_type="backtest",
@@ -149,10 +155,8 @@ def run_backtest(
         result = _simulate(ohlcv_indexed, shifted, config, experiment_id)
     except Exception as exc:
         if tracker is not None and record is not None:
-            try:
+            with suppress(Exception):
                 tracker.fail_experiment(record.experiment_id, reason=str(exc))
-            except Exception:
-                pass
         raise
 
     if tracker is not None and record is not None:
@@ -168,9 +172,11 @@ def run_backtest(
 
 
 def _is_nan(v: object) -> bool:
+    if not isinstance(v, (int, float)):
+        return False
     try:
-        return math.isnan(float(v))  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+        return math.isnan(float(v))
+    except ValueError:
         return False
 
 
@@ -203,15 +209,17 @@ def _simulate(
                 if cost <= cash:
                     cash -= cost
                     position = qty
-                    trades.append(Trade(
-                        timestamp=_to_dt(ts),
-                        side="buy",
-                        fill_price=fill,
-                        quantity=qty,
-                        fee=fee,
-                        slippage_amount=slippage_cost,
-                        value=value,
-                    ))
+                    trades.append(
+                        Trade(
+                            timestamp=_to_dt(ts),
+                            side="buy",
+                            fill_price=fill,
+                            quantity=qty,
+                            fee=fee,
+                            slippage_amount=slippage_cost,
+                            value=value,
+                        )
+                    )
 
         elif not _is_long(exec_signal) and position > 0.0:
             fill = sell_fill_price(open_price, config)
@@ -220,26 +228,30 @@ def _simulate(
             slippage_cost = abs(open_price - fill) * position
             proceeds = value - fee
             cash += proceeds
-            trades.append(Trade(
-                timestamp=_to_dt(ts),
-                side="sell",
-                fill_price=fill,
-                quantity=position,
-                fee=fee,
-                slippage_amount=slippage_cost,
-                value=value,
-            ))
+            trades.append(
+                Trade(
+                    timestamp=_to_dt(ts),
+                    side="sell",
+                    fill_price=fill,
+                    quantity=position,
+                    fee=fee,
+                    slippage_amount=slippage_cost,
+                    value=value,
+                )
+            )
             position = 0.0
 
         # ── Mark-to-market at bar close ───────────────────────────────────────
         equity = cash + position * close_price
-        equity_curve.append(EquityCurvePoint(
-            timestamp=_to_dt(ts),
-            equity=equity,
-            cash=cash,
-            position=position,
-            price=close_price,
-        ))
+        equity_curve.append(
+            EquityCurvePoint(
+                timestamp=_to_dt(ts),
+                equity=equity,
+                cash=cash,
+                position=position,
+                price=close_price,
+            )
+        )
 
     metrics = compute_metrics(
         tuple(equity_curve),
@@ -266,10 +278,14 @@ def _simulate(
 
 
 def _is_long(signal: object) -> bool:
-    return signal == SignalDirection.LONG
+    return bool(signal == SignalDirection.LONG)
 
 
 def _to_dt(ts: object) -> datetime:
     if isinstance(ts, datetime):
         return ts if ts.tzinfo is not None else ts.replace(tzinfo=_UTC)
-    return pd.Timestamp(ts).to_pydatetime()
+    if isinstance(ts, pd.Timestamp):
+        return ts.to_pydatetime()
+    if isinstance(ts, (str, int, float)):
+        return pd.Timestamp(ts).to_pydatetime()
+    raise TypeError(f"Unsupported timestamp type: {type(ts).__name__}")

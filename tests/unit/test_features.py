@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -18,8 +17,8 @@ from aqcs.features import (
     simple_return,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _prices(values: list[float]) -> pd.Series:
     return pd.Series(values, dtype=float)
@@ -30,6 +29,7 @@ def _returns(values: list[float]) -> pd.Series:
 
 
 # ── simple_return ─────────────────────────────────────────────────────────────
+
 
 class TestSimpleReturn:
     def test_basic_computation(self) -> None:
@@ -73,6 +73,7 @@ class TestSimpleReturn:
 
 
 # ── log_return ────────────────────────────────────────────────────────────────
+
 
 class TestLogReturn:
     def test_basic_computation(self) -> None:
@@ -120,6 +121,7 @@ class TestLogReturn:
 
 # ── rolling_return ────────────────────────────────────────────────────────────
 
+
 class TestRollingReturn:
     def test_basic_computation(self) -> None:
         r = rolling_return(_prices([100.0, 110.0, 121.0, 133.1]), window=2)
@@ -156,6 +158,7 @@ class TestRollingReturn:
 
 
 # ── rolling_volatility ────────────────────────────────────────────────────────
+
 
 class TestRollingVolatility:
     def test_basic_computation(self) -> None:
@@ -196,6 +199,7 @@ class TestRollingVolatility:
 
 # ── simple_moving_average ─────────────────────────────────────────────────────
 
+
 class TestSimpleMovingAverage:
     def test_basic_computation(self) -> None:
         sma = simple_moving_average(_prices([10.0, 20.0, 30.0, 40.0]), window=3)
@@ -235,6 +239,7 @@ class TestSimpleMovingAverage:
 
 # ── exponential_moving_average ────────────────────────────────────────────────
 
+
 class TestExponentialMovingAverage:
     def test_warm_up_nans(self) -> None:
         ema = exponential_moving_average(_prices([1.0, 2.0, 3.0, 4.0, 5.0]), span=3)
@@ -267,6 +272,7 @@ class TestExponentialMovingAverage:
 
 
 # ── distance_from_moving_average ──────────────────────────────────────────────
+
 
 class TestDistanceFromMovingAverage:
     def test_above_sma_is_positive(self) -> None:

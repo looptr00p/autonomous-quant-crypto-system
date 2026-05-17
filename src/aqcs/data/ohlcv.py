@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,12 +13,20 @@ import click
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from pyarrow import Table
 
+from aqcs.data.validator import validate_ohlcv
 from aqcs.utils.config import get_settings, load_config
 from aqcs.utils.logging import configure_logging, get_logger
-from aqcs.data.validator import validate_ohlcv
 
 logger = get_logger(__name__)
+
+_TIMEFRAME_MS_MULTIPLIERS: dict[str, int] = {
+    "m": 60_000,
+    "h": 3_600_000,
+    "d": 86_400_000,
+    "w": 604_800_000,
+}
 
 
 # ── Schema ────────────────────────────────────────────────────────────────────
@@ -39,6 +48,7 @@ OHLCV_SCHEMA = pa.schema(
 
 # ── Exchange factory ──────────────────────────────────────────────────────────
 
+
 def _build_exchange(sandbox: bool = True) -> ccxt.Exchange:
     """Build a read-only ccxt Binance Spot instance."""
     settings = get_settings()
@@ -58,6 +68,7 @@ def _build_exchange(sandbox: bool = True) -> ccxt.Exchange:
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
+
 def fetch_ohlcv(
     symbol: str,
     timeframe: str,
@@ -73,6 +84,7 @@ def fetch_ohlcv(
 
     since_ms = int(since.timestamp() * 1000)
     until_ms = int(until.timestamp() * 1000)
+    timeframe_ms = _timeframe_to_milliseconds(timeframe)
 
     rows: list[list[Any]] = []
     cursor = since_ms
@@ -82,17 +94,23 @@ def fetch_ohlcv(
         if not raw:
             break
 
+        reached_until = False
+        last_accepted_ts_ms: int | None = None
         for candle in raw:
-            ts_ms = candle[0]
+            ts_ms = int(candle[0])
             if ts_ms >= until_ms:
+                reached_until = True
                 break
             rows.append(candle)
-            cursor = ts_ms
+            last_accepted_ts_ms = ts_ms
+
+        if reached_until or last_accepted_ts_ms is None:
+            break
 
         if len(raw) < max_candles:
             break
 
-        cursor += 1
+        cursor = last_accepted_ts_ms + timeframe_ms
         time.sleep(pagination_sleep_ms / 1000)
 
         logger.info(
@@ -119,7 +137,18 @@ def fetch_ohlcv(
     return df
 
 
+def _timeframe_to_milliseconds(timeframe: str) -> int:
+    """Convert simple ccxt-style timeframes such as 1m, 4h, or 1d to milliseconds."""
+    match = re.fullmatch(r"(\d+)([mhdw])", timeframe)
+    if match is None:
+        raise ValueError(f"Unsupported timeframe '{timeframe}'")
+    value = int(match.group(1))
+    unit = match.group(2)
+    return value * _TIMEFRAME_MS_MULTIPLIERS[unit]
+
+
 # ── Storage ───────────────────────────────────────────────────────────────────
+
 
 def save_parquet(df: pd.DataFrame, output_dir: Path, symbol: str, timeframe: str) -> Path:
     """Write DataFrame to Parquet using tmp-then-rename to prevent partial writes."""
@@ -128,8 +157,9 @@ def save_parquet(df: pd.DataFrame, output_dir: Path, symbol: str, timeframe: str
     tmp = dest.with_suffix(".tmp.parquet")
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    table = pa.Table.from_pandas(df, schema=OHLCV_SCHEMA, preserve_index=False)
-    pq.write_table(table, tmp, compression="snappy")
+    table: Table = pa.Table.from_pandas(df, schema=OHLCV_SCHEMA, preserve_index=False)
+    write_table: Any = pq.write_table
+    write_table(table, tmp, compression="snappy")
     tmp.rename(dest)
 
     logger.info("parquet_saved", path=str(dest), rows=len(df))
@@ -138,13 +168,33 @@ def save_parquet(df: pd.DataFrame, output_dir: Path, symbol: str, timeframe: str
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 @click.command()
-@click.option("--symbol", "-s", default="BTC/USDT", show_default=True, help="Market symbol (e.g. BTC/USDT)")
-@click.option("--timeframe", "-t", default="1d", show_default=True, help="Candle timeframe (1d, 4h, 1h …)")
-@click.option("--start", required=True, type=click.DateTime(formats=["%Y-%m-%d"]), help="Start date YYYY-MM-DD")
-@click.option("--end", default=None, type=click.DateTime(formats=["%Y-%m-%d"]), help="End date YYYY-MM-DD (default: today)")
+@click.option(
+    "--symbol", "-s", default="BTC/USDT", show_default=True, help="Market symbol (e.g. BTC/USDT)"
+)
+@click.option(
+    "--timeframe", "-t", default="1d", show_default=True, help="Candle timeframe (1d, 4h, 1h …)"
+)
+@click.option(
+    "--start",
+    required=True,
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Start date YYYY-MM-DD",
+)
+@click.option(
+    "--end",
+    default=None,
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="End date YYYY-MM-DD (default: today)",
+)
 @click.option("--output-dir", default=None, help="Output directory (default: data/raw)")
-@click.option("--log-level", default="INFO", show_default=True, type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]))
+@click.option(
+    "--log-level",
+    default="INFO",
+    show_default=True,
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+)
 def main(
     symbol: str,
     timeframe: str,
@@ -157,8 +207,8 @@ def main(
     configure_logging(level=log_level, fmt="json")
     cfg = load_config()
 
-    since = start.replace(tzinfo=timezone.utc)
-    until = (end or datetime.now(timezone.utc)).replace(tzinfo=timezone.utc)
+    since = start.replace(tzinfo=UTC)
+    until = (end or datetime.now(UTC)).replace(tzinfo=UTC)
     out = Path(output_dir or cfg["data"]["raw_dir"])
 
     logger.info(

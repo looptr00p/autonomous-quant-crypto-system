@@ -19,7 +19,7 @@ def buy_fill_price(open_price: float, config: BacktestConfig) -> float:
     fill_price = open_price * (1 + slippage_factor)
     Slippage always increases the buy cost (conservative assumption).
     """
-    return open_price * (1.0 + config.slippage_factor())
+    return float(open_price * (1.0 + config.slippage_factor()))
 
 
 def sell_fill_price(open_price: float, config: BacktestConfig) -> float:
@@ -28,7 +28,7 @@ def sell_fill_price(open_price: float, config: BacktestConfig) -> float:
     fill_price = open_price * (1 - slippage_factor)
     Slippage always decreases the sell proceeds (conservative assumption).
     """
-    return open_price * (1.0 - config.slippage_factor())
+    return float(open_price * (1.0 - config.slippage_factor()))
 
 
 def compute_fee(value: float, config: BacktestConfig) -> float:
@@ -37,7 +37,7 @@ def compute_fee(value: float, config: BacktestConfig) -> float:
     fee = value * fee_factor
     Fee is charged on the gross transaction value (fill_price * quantity).
     """
-    return value * config.fee_factor()
+    return float(value * config.fee_factor())
 
 
 def compute_buy_quantity(

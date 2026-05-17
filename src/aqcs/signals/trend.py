@@ -45,8 +45,7 @@ def trend_filter_signal(
     _require_window(long_window, "long_window")
     if short_window >= long_window:
         raise ValueError(
-            f"short_window ({short_window}) must be less than "
-            f"long_window ({long_window})"
+            f"short_window ({short_window}) must be less than " f"long_window ({long_window})"
         )
 
     short_ma = simple_moving_average(prices, short_window)

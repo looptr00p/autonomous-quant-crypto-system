@@ -38,6 +38,7 @@ def _exists_in(ref: str, directory: Path, glob_prefix: str) -> bool:
 
 # ── 1. Governance index files exist ───────────────────────────────────────────
 
+
 def test_handoffs_directory_has_readme() -> None:
     assert (_HANDOFFS_DIR / "README.md").is_file()
 
@@ -58,14 +59,13 @@ def test_decisions_directory_has_template() -> None:
 # ── 2. HND cross-references ───────────────────────────────────────────────────
 # Parametrized on HND files — passes trivially if no handoffs exist.
 
+
 @pytest.mark.parametrize("hnd_file", _HND_FILES, ids=[f.name for f in _HND_FILES])
 def test_hnd_obj_refs_resolve(hnd_file: Path) -> None:
     content = hnd_file.read_text(encoding="utf-8")
     refs = _find_ids(r"OBJ-\d+", content)
     missing = [r for r in sorted(refs) if not list(_OBJECTIVES_DIR.glob(f"{r}-*.md"))]
-    assert not missing, (
-        f"{hnd_file.name}: OBJ references not found in docs/objectives/: {missing}"
-    )
+    assert not missing, f"{hnd_file.name}: OBJ references not found in docs/objectives/: {missing}"
 
 
 @pytest.mark.parametrize("hnd_file", _HND_FILES, ids=[f.name for f in _HND_FILES])
@@ -73,9 +73,7 @@ def test_hnd_adr_refs_resolve(hnd_file: Path) -> None:
     content = hnd_file.read_text(encoding="utf-8")
     refs = _find_ids(r"ADR-\d+", content)
     missing = [r for r in sorted(refs) if not list(_DECISIONS_DIR.glob(f"{r}-*.md"))]
-    assert not missing, (
-        f"{hnd_file.name}: ADR references not found in docs/decisions/: {missing}"
-    )
+    assert not missing, f"{hnd_file.name}: ADR references not found in docs/decisions/: {missing}"
 
 
 @pytest.mark.parametrize("hnd_file", _HND_FILES, ids=[f.name for f in _HND_FILES])
@@ -85,24 +83,24 @@ def test_hnd_hnd_refs_resolve(hnd_file: Path) -> None:
     refs = _find_ids(r"HND-\d+", content)
     if own_id:
         refs.discard(own_id.group())  # self-references are fine
-    missing = [r for r in sorted(refs) if not list(_HANDOFFS_DIR.glob(f"{r}-*.md")) and
-               not list(_HANDOFFS_DIR.glob(f"*{r}*.md"))]
-    assert not missing, (
-        f"{hnd_file.name}: HND references not found in docs/handoffs/: {missing}"
-    )
+    missing = [
+        r
+        for r in sorted(refs)
+        if not list(_HANDOFFS_DIR.glob(f"{r}-*.md")) and not list(_HANDOFFS_DIR.glob(f"*{r}*.md"))
+    ]
+    assert not missing, f"{hnd_file.name}: HND references not found in docs/handoffs/: {missing}"
 
 
 # ── 3. AUD cross-references ───────────────────────────────────────────────────
 # Parametrized on AUD files — passes trivially if no audits exist.
+
 
 @pytest.mark.parametrize("aud_file", _AUD_FILES, ids=[f.name for f in _AUD_FILES])
 def test_aud_obj_refs_resolve(aud_file: Path) -> None:
     content = aud_file.read_text(encoding="utf-8")
     refs = _find_ids(r"OBJ-\d+", content)
     missing = [r for r in sorted(refs) if not list(_OBJECTIVES_DIR.glob(f"{r}-*.md"))]
-    assert not missing, (
-        f"{aud_file.name}: OBJ references not found in docs/objectives/: {missing}"
-    )
+    assert not missing, f"{aud_file.name}: OBJ references not found in docs/objectives/: {missing}"
 
 
 @pytest.mark.parametrize("aud_file", _AUD_FILES, ids=[f.name for f in _AUD_FILES])
@@ -110,6 +108,4 @@ def test_aud_adr_refs_resolve(aud_file: Path) -> None:
     content = aud_file.read_text(encoding="utf-8")
     refs = _find_ids(r"ADR-\d+", content)
     missing = [r for r in sorted(refs) if not list(_DECISIONS_DIR.glob(f"{r}-*.md"))]
-    assert not missing, (
-        f"{aud_file.name}: ADR references not found in docs/decisions/: {missing}"
-    )
+    assert not missing, f"{aud_file.name}: ADR references not found in docs/decisions/: {missing}"

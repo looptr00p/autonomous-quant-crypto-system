@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from aqcs.llm_oversight.observer import _OBSERVED_CATEGORIES, OversightObserver
 from aqcs.utils.event_bus import EventBus
 from aqcs.utils.events import (
     DataDownloadedEvent,
@@ -13,7 +14,6 @@ from aqcs.utils.events import (
     OversightReviewEvent,
     SystemEvent,
 )
-from aqcs.llm_oversight.observer import OversightObserver, _OBSERVED_CATEGORIES
 
 
 class TestObserverSubscription:

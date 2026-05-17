@@ -135,7 +135,9 @@ class TestPhaseProgression:
         with pytest.raises(PhaseConstraintError):
             assert_allowed(Feature.LIVE_TRADING)
 
-    def test_phase_3_still_prohibits_autonomous_agents(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_phase_3_still_prohibits_autonomous_agents(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 3)
         with pytest.raises(PhaseConstraintError):
             assert_allowed(Feature.AUTONOMOUS_AGENTS)
@@ -144,7 +146,9 @@ class TestPhaseProgression:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 4)
         assert_allowed(Feature.LIVE_TRADING)
 
-    def test_phase_4_still_prohibits_autonomous_agents(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_phase_4_still_prohibits_autonomous_agents(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 4)
         with pytest.raises(PhaseConstraintError):
             assert_allowed(Feature.AUTONOMOUS_AGENTS)
@@ -154,7 +158,9 @@ class TestPhaseProgression:
         with pytest.raises(PhaseConstraintError, match="Unknown phase"):
             assert_allowed(Feature.MACHINE_LEARNING)
 
-    def test_unknown_phase_prohibited_set_also_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_unknown_phase_prohibited_set_also_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(guard, "CURRENT_PHASE", 99)
         with pytest.raises(PhaseConstraintError, match="Unknown phase"):
             guard.prohibited_in_current_phase()

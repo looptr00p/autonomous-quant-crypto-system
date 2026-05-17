@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from aqcs.utils.event_bus import EventBus
 from aqcs.utils.events import (
     DataDownloadedEvent,

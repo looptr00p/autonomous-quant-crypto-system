@@ -31,10 +31,19 @@ def compute_metrics(
     nan = float("nan")
 
     if not equity_curve:
-        return {k: nan for k in [
-            "total_return", "cagr", "max_drawdown", "sharpe_ratio",
-            "annualised_volatility", "trade_count", "win_rate", "exposure",
-        ]}
+        return {
+            k: nan
+            for k in [
+                "total_return",
+                "cagr",
+                "max_drawdown",
+                "sharpe_ratio",
+                "annualised_volatility",
+                "trade_count",
+                "win_rate",
+                "exposure",
+            ]
+        }
 
     equities = [p.equity for p in equity_curve]
     first_equity = equities[0]
@@ -75,9 +84,7 @@ def compute_metrics(
         std = statistics.stdev(period_returns)
         mean = statistics.mean(period_returns)
         annualised_volatility = std * math.sqrt(periods_per_year)
-        sharpe_ratio = (
-            (mean / std) * math.sqrt(periods_per_year) if std > 0 else 0.0
-        )
+        sharpe_ratio = (mean / std) * math.sqrt(periods_per_year) if std > 0 else 0.0
     else:
         annualised_volatility = nan
         sharpe_ratio = nan
@@ -104,14 +111,16 @@ def compute_metrics(
             f"Invalid trade sequence: {len(buy_trades)} buy(s) with only "
             f"{len(sell_trades)} sell(s); at most one unpaired buy is allowed"
         )
-    completed_buys = buy_trades[:len(sell_trades)]
+    completed_buys = buy_trades[: len(sell_trades)]
     pairs = list(zip(completed_buys, sell_trades, strict=True))
     if pairs:
+
         def _net_pnl(buy: Trade, sell: Trade) -> float:
             gross = (sell.fill_price - buy.fill_price) * buy.quantity
-            return gross - buy.fee - sell.fee
+            return float(gross - buy.fee - sell.fee)
+
         wins = sum(1 for buy, sell in pairs if _net_pnl(buy, sell) > 0)
-        win_rate = wins / len(pairs)
+        win_rate = float(wins / len(pairs))
     else:
         win_rate = nan
 
@@ -126,7 +135,9 @@ def compute_metrics(
         "cagr": round(cagr, 8) if not math.isnan(cagr) else nan,
         "max_drawdown": round(max_drawdown, 8),
         "sharpe_ratio": round(sharpe_ratio, 8) if not math.isnan(sharpe_ratio) else nan,
-        "annualised_volatility": round(annualised_volatility, 8) if not math.isnan(annualised_volatility) else nan,
+        "annualised_volatility": (
+            round(annualised_volatility, 8) if not math.isnan(annualised_volatility) else nan
+        ),
         "trade_count": float(trade_count),
         "win_rate": round(win_rate, 8) if not math.isnan(win_rate) else nan,
         "exposure": round(exposure, 8),

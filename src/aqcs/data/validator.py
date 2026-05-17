@@ -22,7 +22,7 @@ Checks performed (in order):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone as _stdlib_tz
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -37,8 +37,15 @@ from aqcs.utils.logging import get_logger
 logger = get_logger(__name__)
 
 REQUIRED_COLUMNS: list[str] = [
-    "timestamp", "open", "high", "low", "close", "volume",
-    "symbol", "timeframe", "exchange",
+    "timestamp",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "symbol",
+    "timeframe",
+    "exchange",
 ]
 
 _PRICE_COLUMNS: list[str] = ["open", "high", "low", "close"]
@@ -49,18 +56,19 @@ _UTC_NAMES: frozenset[str] = frozenset({"UTC", "UTC+00:00", "UTC-00:00", "+00:00
 
 # Maps ccxt-style timeframe strings to pandas date_range freq aliases (pandas 2.x)
 _TIMEFRAME_TO_FREQ: dict[str, str] = {
-    "1d":  "1D",
-    "4h":  "4h",
-    "2h":  "2h",
-    "1h":  "1h",
+    "1d": "1D",
+    "4h": "4h",
+    "2h": "2h",
+    "1h": "1h",
     "30m": "30min",
     "15m": "15min",
-    "5m":  "5min",
-    "1m":  "1min",
+    "5m": "5min",
+    "1m": "1min",
 }
 
 
 # ── Result ─────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -87,6 +95,7 @@ class ValidationResult:
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
+
 
 def validate_ohlcv(
     df: pd.DataFrame,
@@ -141,8 +150,11 @@ def validate_ohlcv(
         )
         logger.error("ohlcv_empty_dataframe", symbol=symbol, timeframe=timeframe)
         return ValidationResult(
-            is_valid=False, errors=errors, warnings=warnings,
-            symbol=symbol, timeframe=timeframe,
+            is_valid=False,
+            errors=errors,
+            warnings=warnings,
+            symbol=symbol,
+            timeframe=timeframe,
         )
 
     # ── 2. Schema: required columns ───────────────────────────────────────────
@@ -160,8 +172,12 @@ def validate_ohlcv(
         )
         logger.error("ohlcv_schema_mismatch", symbol=symbol, missing=missing)
         return ValidationResult(
-            is_valid=False, errors=errors, warnings=warnings,
-            row_count=len(df), symbol=symbol, timeframe=timeframe,
+            is_valid=False,
+            errors=errors,
+            warnings=warnings,
+            row_count=len(df),
+            symbol=symbol,
+            timeframe=timeframe,
         )
 
     # ── 3. Nulls in numeric columns ───────────────────────────────────────────
@@ -169,10 +185,16 @@ def validate_ohlcv(
     null_cols = {col: int(cnt) for col, cnt in null_counts.items() if cnt > 0}
     if null_cols:
         msg = f"Null values in columns: {null_cols}"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_null_values", symbol=symbol, null_cols=null_cols)
 
     # ── 4. UTC-aware timestamp ────────────────────────────────────────────────
@@ -180,93 +202,151 @@ def validate_ohlcv(
     tz = ts_col.dt.tz
     if tz is None:
         msg = "timestamp column is naive (no timezone). Must be UTC."
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_naive_timestamps", symbol=symbol)
     elif not _is_utc(tz):
         msg = f"timestamp column must be UTC. Found timezone '{tz}'."
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_non_utc_timestamps", symbol=symbol, tz=str(tz))
 
     # ── 5. Duplicate timestamps ───────────────────────────────────────────────
     dupes = int(ts_col.duplicated().sum())
     if dupes > 0:
         msg = f"{dupes} duplicate timestamp(s)"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_duplicate_timestamps", symbol=symbol, count=dupes)
 
     # ── 6. Strictly increasing timestamps ────────────────────────────────────
     if not ts_col.is_monotonic_increasing:
         msg = "timestamps are not strictly increasing (non-monotonic order)"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_non_monotonic_timestamps", symbol=symbol)
 
     # Halt structural checks — consistency comparisons would be misleading
     if errors:
         return ValidationResult(
-            is_valid=False, errors=errors, warnings=warnings,
-            row_count=len(df), symbol=symbol, timeframe=timeframe,
+            is_valid=False,
+            errors=errors,
+            warnings=warnings,
+            row_count=len(df),
+            symbol=symbol,
+            timeframe=timeframe,
         )
 
     # ── 7. Price positivity ───────────────────────────────────────────────────
     non_positive = int((df[_PRICE_COLUMNS] <= 0).any(axis=1).sum())
     if non_positive > 0:
         msg = f"{non_positive} row(s) with non-positive price(s)"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_non_positive_prices", symbol=symbol, rows=non_positive)
 
     # ── 8. High >= Low ────────────────────────────────────────────────────────
     high_lt_low = int((df["high"] < df["low"]).sum())
     if high_lt_low > 0:
         msg = f"{high_lt_low} row(s) where high < low"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_high_lt_low", symbol=symbol, rows=high_lt_low)
 
     # ── 9. Open within [low, high] ────────────────────────────────────────────
     open_oob = int(((df["open"] < df["low"]) | (df["open"] > df["high"])).sum())
     if open_oob > 0:
         msg = f"{open_oob} row(s) where open is outside [low, high]"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_open_out_of_range", symbol=symbol, rows=open_oob)
 
     # ── 10. Close within [low, high] ──────────────────────────────────────────
     close_oob = int(((df["close"] < df["low"]) | (df["close"] > df["high"])).sum())
     if close_oob > 0:
         msg = f"{close_oob} row(s) where close is outside [low, high]"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_close_out_of_range", symbol=symbol, rows=close_oob)
 
     # ── 11. Non-negative volume ───────────────────────────────────────────────
     neg_volume = int((df["volume"] < 0).sum())
     if neg_volume > 0:
         msg = f"{neg_volume} row(s) with negative volume"
-        _fail(msg, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _fail(
+            msg,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_negative_volume", symbol=symbol, rows=neg_volume)
 
     # ── 12. Metadata consistency ──────────────────────────────────────────────
@@ -291,8 +371,10 @@ def validate_ohlcv(
     if is_valid:
         logger.info(
             "ohlcv_validation_passed",
-            symbol=symbol, timeframe=timeframe,
-            rows=len(df), warnings=len(warnings),
+            symbol=symbol,
+            timeframe=timeframe,
+            rows=len(df),
+            warnings=len(warnings),
         )
 
     return ValidationResult(
@@ -310,9 +392,10 @@ def validate_ohlcv(
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _publish(bus: EventBus | None, event: object) -> None:
     if bus is not None:
-        bus.publish(event)  # type: ignore[arg-type]
+        bus.publish(event)
 
 
 def _is_utc(tz: object) -> bool:
@@ -322,7 +405,7 @@ def _is_utc(tz: object) -> bool:
     identity to avoid false positives from DST-shifting timezones like
     Europe/London (which has offset +0 in winter but +1 in summer).
     """
-    if tz is _stdlib_tz.utc:
+    if tz is UTC:
         return True
     return str(tz).upper() in _UTC_NAMES
 
@@ -339,10 +422,16 @@ def _check_metadata(
         if df[col].isnull().any() or (df[col] == "").any():
             msg = f"'{col}' column contains empty or null values"
             errors.append(msg)
-            _publish(bus, DataValidationFailedEvent(
-                component=component, symbol=symbol, timeframe=timeframe,
-                reason=msg, row_count=len(df),
-            ))
+            _publish(
+                bus,
+                DataValidationFailedEvent(
+                    component=component,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    reason=msg,
+                    row_count=len(df),
+                ),
+            )
             logger.error("ohlcv_empty_metadata", col=col, symbol=symbol)
 
     # Cross-check against function arguments
@@ -350,20 +439,32 @@ def _check_metadata(
     if mismatched_symbols > 0:
         msg = f"{mismatched_symbols} row(s) have symbol != '{symbol}'"
         errors.append(msg)
-        _publish(bus, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _publish(
+            bus,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_symbol_mismatch", expected=symbol, rows=mismatched_symbols)
 
     mismatched_tf = (df["timeframe"] != timeframe).sum()
     if mismatched_tf > 0:
         msg = f"{mismatched_tf} row(s) have timeframe != '{timeframe}'"
         errors.append(msg)
-        _publish(bus, DataValidationFailedEvent(
-            component=component, symbol=symbol, timeframe=timeframe,
-            reason=msg, row_count=len(df),
-        ))
+        _publish(
+            bus,
+            DataValidationFailedEvent(
+                component=component,
+                symbol=symbol,
+                timeframe=timeframe,
+                reason=msg,
+                row_count=len(df),
+            ),
+        )
         logger.error("ohlcv_timeframe_mismatch", expected=timeframe, rows=mismatched_tf)
 
 
@@ -394,16 +495,22 @@ def _check_gaps(
     gap_end = missing_ts[-1].strftime("%Y-%m-%dT%H:%M:%SZ")
     msg = f"{missing_bars} missing bar(s): {gap_start} to {gap_end}"
     warnings.append(msg)
-    _publish(bus, DataGapDetectedEvent(
-        component=component,
-        symbol=symbol,
-        timeframe=timeframe,
-        gap_start=gap_start,
-        gap_end=gap_end,
-        missing_bars=missing_bars,
-    ))
+    _publish(
+        bus,
+        DataGapDetectedEvent(
+            component=component,
+            symbol=symbol,
+            timeframe=timeframe,
+            gap_start=gap_start,
+            gap_end=gap_end,
+            missing_bars=missing_bars,
+        ),
+    )
     logger.warning(
         "ohlcv_gaps_detected",
-        symbol=symbol, timeframe=timeframe,
-        missing_bars=missing_bars, gap_start=gap_start, gap_end=gap_end,
+        symbol=symbol,
+        timeframe=timeframe,
+        missing_bars=missing_bars,
+        gap_start=gap_start,
+        gap_end=gap_end,
     )

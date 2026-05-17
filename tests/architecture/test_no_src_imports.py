@@ -38,7 +38,8 @@ def extract_src_imports(path: Path) -> list[str]:
 @pytest.mark.parametrize("py_file", _ALL_PY_FILES)
 def test_no_legacy_src_imports(py_file: Path) -> None:
     violations = extract_src_imports(py_file)
-    assert not violations, (
-        f"\n{py_file}: found legacy src.* import(s) — use aqcs.* instead:\n"
-        + "\n".join(f"  - {v}" for v in violations)
+    assert (
+        not violations
+    ), f"\n{py_file}: found legacy src.* import(s) — use aqcs.* instead:\n" + "\n".join(
+        f"  - {v}" for v in violations
     )

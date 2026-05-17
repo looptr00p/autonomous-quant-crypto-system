@@ -9,13 +9,12 @@ No external dependencies. No side effects on import. No decorators.
 
 from __future__ import annotations
 
-from enum import Enum
-
+from enum import StrEnum
 
 CURRENT_PHASE: int = 1
 
 
-class Feature(str, Enum):
+class Feature(StrEnum):
     """Enumeration of all capabilities that can be gated by phase."""
 
     FUTURES = "futures"
@@ -35,38 +34,46 @@ class PhaseConstraintError(RuntimeError):
 
 
 _PROHIBITED: dict[int, frozenset[Feature]] = {
-    1: frozenset({
-        Feature.FUTURES,
-        Feature.LEVERAGE,
-        Feature.LIVE_TRADING,
-        Feature.WEBSOCKET_STREAMING,
-        Feature.REINFORCEMENT_LEARNING,
-        Feature.MACHINE_LEARNING,
-        Feature.AUTONOMOUS_AGENTS,
-        Feature.SHORT_SELLING,
-        Feature.ORDER_EXECUTION,
-        Feature.PAPER_TRADING,
-    }),
-    2: frozenset({
-        Feature.FUTURES,
-        Feature.LEVERAGE,
-        Feature.LIVE_TRADING,
-        Feature.REINFORCEMENT_LEARNING,
-        Feature.AUTONOMOUS_AGENTS,
-        Feature.SHORT_SELLING,
-        Feature.ORDER_EXECUTION,
-    }),
-    3: frozenset({
-        Feature.FUTURES,
-        Feature.LEVERAGE,
-        Feature.LIVE_TRADING,
-        Feature.REINFORCEMENT_LEARNING,
-        Feature.AUTONOMOUS_AGENTS,
-    }),
-    4: frozenset({
-        Feature.REINFORCEMENT_LEARNING,
-        Feature.AUTONOMOUS_AGENTS,
-    }),
+    1: frozenset(
+        {
+            Feature.FUTURES,
+            Feature.LEVERAGE,
+            Feature.LIVE_TRADING,
+            Feature.WEBSOCKET_STREAMING,
+            Feature.REINFORCEMENT_LEARNING,
+            Feature.MACHINE_LEARNING,
+            Feature.AUTONOMOUS_AGENTS,
+            Feature.SHORT_SELLING,
+            Feature.ORDER_EXECUTION,
+            Feature.PAPER_TRADING,
+        }
+    ),
+    2: frozenset(
+        {
+            Feature.FUTURES,
+            Feature.LEVERAGE,
+            Feature.LIVE_TRADING,
+            Feature.REINFORCEMENT_LEARNING,
+            Feature.AUTONOMOUS_AGENTS,
+            Feature.SHORT_SELLING,
+            Feature.ORDER_EXECUTION,
+        }
+    ),
+    3: frozenset(
+        {
+            Feature.FUTURES,
+            Feature.LEVERAGE,
+            Feature.LIVE_TRADING,
+            Feature.REINFORCEMENT_LEARNING,
+            Feature.AUTONOMOUS_AGENTS,
+        }
+    ),
+    4: frozenset(
+        {
+            Feature.REINFORCEMENT_LEARNING,
+            Feature.AUTONOMOUS_AGENTS,
+        }
+    ),
 }
 
 
