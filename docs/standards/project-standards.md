@@ -16,7 +16,8 @@ These standards are not guidelines. Non-conforming code is not accepted into `ma
 3. [Configuration](#3-configuration)
 4. [Experiments](#4-experiments)
 5. [Testing](#5-testing)
-6. [Anti-complexity rules](#6-anti-complexity-rules)
+6. [Git workflow](#6-git-workflow)
+7. [Anti-complexity rules](#7-anti-complexity-rules)
 
 ---
 
@@ -352,11 +353,104 @@ If a function cannot be unit-tested without significant mocking complexity, it s
 
 ---
 
-## 6. Anti-complexity rules
+## 6. Git workflow
+
+### 6.1 Branch model
+
+AQCS uses a lightweight Gitflow model with `master` as the protected integration branch.
+
+Agents must not implement directly on `master`. For every requested change, create or reuse a
+task-scoped branch, then commit and push that branch before stopping. The only exception is an
+explicit human instruction to perform an operational merge or repository cleanup on `master`.
+
+Allowed branch prefixes:
+
+| Prefix | Use for |
+|--------|---------|
+| `feat/` | New approved capabilities within the current Objective |
+| `fix/` | Bug fixes, audit fixes, validation fixes, or runtime corrections |
+| `docs/` | Documentation-only changes |
+| `test/` | Test-only changes |
+| `chore/` | Tooling, repository hygiene, non-runtime maintenance |
+| `data/` | Approved operational data-capture metadata or handoff-only work |
+| `exp/` | Human-approved research experiments, never production logic |
+
+Branch names must be lowercase kebab-case after the prefix:
+
+```text
+docs/gitflow-commit-standards
+fix/task-ohlcv-runtime-pagination
+feat/obj-003-experiment-tracking
+```
+
+Branches must be deleted from the remote after they are merged into `master`.
+
+### 6.2 Commit message structure
+
+Every task commit must use this format:
+
+```text
+<TASK-ID>: <imperative present-tense summary>
+```
+
+Examples:
+
+```text
+TASK-DOC-STANDARDS-003: document Gitflow and commit conventions
+TASK-ARCH-ENFORCE-001: extend legacy namespace enforcement to scripts
+TASK-DATA-CAPTURE-001: record passive OHLCV capture handoff
+```
+
+Rules:
+
+- The summary starts with a lowercase imperative verb after the colon.
+- The summary describes the change made, not the agent activity.
+- The subject line should stay under 100 characters when practical.
+- Use one task ID per commit unless the human explicitly asks to bundle related completed tasks.
+- Merge commits may use Git's default merge subject.
+
+For non-task maintenance commits, use one of the following conventional prefixes:
+
+```text
+docs: update README usage examples
+fix: repair Docker environment parsing
+feat: implement experiment tracker
+test: add OHLCV pagination regression coverage
+chore: prune merged remote branches
+```
+
+Task IDs are preferred whenever a task exists.
+
+### 6.3 Required closeout sequence
+
+Before stopping after any change, agents must:
+
+1. Run the relevant verification commands for the change.
+2. Stage only files that belong to the task.
+3. Commit with the required message structure.
+4. Push the branch to `origin`.
+5. Produce or update the required handoff record.
+6. Report the branch, commit SHA, pushed remote, and verification result.
+
+Agents must not silently include unrelated local modifications in a commit. If the working tree is
+mixed, stage explicit paths only and report any unrelated files left unstaged.
+
+### 6.4 Merge rules
+
+All completed task branches merge into `master` only after verification passes. Human approval is
+required before merging to `master` when the change affects phase constraints, feature flags,
+critical configuration, ADRs, execution pathways, dependencies, or any scope outside an approved
+Objective.
+
+After merge, verify `master` with the project commands and delete merged remote branches.
+
+---
+
+## 7. Anti-complexity rules
 
 These rules exist because complexity in a research system is not a feature — it is a liability. Every layer of abstraction added without a concrete, immediate justification increases the probability of undetected bugs in research results.
 
-### 6.1 No machine learning without approval
+### 7.1 No machine learning without approval
 
 ML models — including but not limited to neural networks, gradient boosting, clustering, and dimensionality reduction — are not permitted in `src/` without a written architecture decision record (ADR) that:
 
@@ -367,19 +461,19 @@ ML models — including but not limited to neural networks, gradient boosting, c
 
 Phase 1 and Phase 2 contain no ML. This is not a temporary limitation — it is a deliberate sequencing decision. A rigorous rules-based baseline must exist before any ML component is introduced, so that the ML component can be evaluated against a known reference.
 
-### 6.2 No microservices
+### 7.2 No microservices
 
 All Phase 1–2 code runs as a single Python process or as a scheduled script. No inter-service communication, no message queues, no service meshes, no distributed state stores.
 
 If a component genuinely requires independent scaling or fault isolation, that requirement must be documented and approved before any microservice infrastructure is introduced. The burden of proof is on the proposal, not the opposition.
 
-### 6.3 No live order execution in Phase 1
+### 7.3 No live order execution in Phase 1
 
 No code path that submits an order to an exchange exists in Phase 1. The `src/execution/` module is present for architecture purposes. It contains read-only helpers, dry-run logging, and order builder utilities. Any function that would call `exchange.create_order()`, `exchange.place_order()`, or equivalent is a defect.
 
 The transition from Phase 2 to Phase 3 (paper trading) and from Phase 3 to Phase 4 (live execution) each require a dedicated architecture review. The configuration flag `features.order_execution` remains `false` until that review is completed and documented.
 
-### 6.4 No premature optimisation
+### 7.4 No premature optimisation
 
 Performance optimisation is not permitted unless:
 
