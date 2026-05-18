@@ -81,11 +81,12 @@ Before implementing any change, an agent must have read or verified the followin
 2. **`docs/ai/AQCS_CONTEXT.md`** — canonical project context
 3. **`docs/ai/AGENT_ROLES.md`** — role boundaries and permissions
 4. **`docs/ai/TASK_PROTOCOL.md`** — task format, ID system, required workflow
-5. **`docs/architecture/system-architecture-v1.md`** — component specifications and DAG
-6. **`docs/standards/project-standards.md`** — coding and documentation standards
-7. **`docs/standards/phase-constraints.md`** — what is prohibited in the current phase
-8. **`docs/architecture/event-schema.md`** — event types and bus behavior
-9. **`docs/architecture/data-validation.md`** — validation rules and invariants
+5. **`docs/governance/agent_workflow_standard.md`** — mandatory branch, commit, PR, merge, handoff, and clean-tree workflow
+6. **`docs/architecture/system-architecture-v1.md`** — component specifications and DAG
+7. **`docs/standards/project-standards.md`** — coding and documentation standards
+8. **`docs/standards/phase-constraints.md`** — what is prohibited in the current phase
+9. **`docs/architecture/event-schema.md`** — event types and bus behavior
+10. **`docs/architecture/data-validation.md`** — validation rules and invariants
 
 ---
 
@@ -95,10 +96,11 @@ For any non-trivial change (new file, new module, schema change, config change):
 
 1. **Identify scope.** Confirm the change falls within the current Objective (`docs/objectives/`).
 2. **Check for an existing ADR.** If the change requires a design decision, check `docs/decisions/`.
-3. **Run the test suite.** `PYTHONPATH=src pytest tests/ -q --no-cov` must pass before and after.
-4. **Run lint and type checks.** `ruff check src/ tests/` and `mypy src/` must pass.
-5. **Write tests first or alongside implementation.** No code without tests.
-6. **Document the handoff.** Complete `docs/ai/HANDOFF_TEMPLATE.md` before stopping.
+3. **Follow the agent workflow standard.** Comply with `docs/governance/agent_workflow_standard.md` before changing files, through PR delivery, and before stopping.
+4. **Run the test suite.** `PYTHONPATH=src pytest tests/ -q --no-cov` must pass before and after.
+5. **Run lint and type checks.** `ruff check src/ tests/` and `mypy src/` must pass.
+6. **Write tests first or alongside implementation.** No code without tests.
+7. **Document the handoff.** Complete `docs/ai/HANDOFF_TEMPLATE.md` before stopping.
 
 ---
 
