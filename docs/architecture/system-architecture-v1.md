@@ -1,7 +1,7 @@
 # AQCS System Architecture — Version 1
 
-**Version:** 1.0.0  
-**Date:** 2026-05-16  
+**Version:** 1.0.1  
+**Date:** 2026-05-18  
 **Status:** Active  
 **Phase coverage:** Phase 1 (Foundation) and Phase 2 (Research)
 
@@ -22,6 +22,7 @@
    - 4.7 [Backtesting Engine](#47-backtesting-engine)
    - 4.8 [Monitoring](#48-monitoring)
    - 4.9 [LLM Oversight](#49-llm-oversight)
+   - 4.10 [Research Layer](#410-research-layer)
 5. [Dependency rules](#5-dependency-rules)
 6. [Critical constraint: LLM boundary](#6-critical-constraint-llm-boundary)
 7. [Failure modes and mitigations](#7-failure-modes-and-mitigations)
@@ -606,9 +607,95 @@ Observe the system's activity through the event stream, produce human-readable n
 
 ---
 
+### 4.10 Research Layer
+
+**Location:** `src/aqcs/research/`
+
+#### Responsibility
+
+Orchestrate offline, deterministic research pipelines by composing existing AQCS components. The Research Layer provides the integration point for experiment validation runs and replay certification — it wires Data, Features, Signals, Backtesting, Experiments, and Monitoring together into reproducible, auditable research workflows.
+
+**This layer is offline-only.** It has no execution pathway, no live-trading path, and no connection to private exchange APIs. Every computation it performs is deterministic and reproducible from local Parquet files.
+
+#### Current modules
+
+| Module | Purpose |
+|--------|---------|
+| `research_validation.py` | End-to-end deterministic research validation: load → validate → signal → backtest → experiment record |
+| `replay_certificate.py` | Deterministic replay certification: certify that a research result can be reproduced identically from the same dataset and configuration |
+
+#### Inputs
+
+| Input | Source | Format |
+|-------|--------|--------|
+| OHLCV Parquet data | `data/raw/*.parquet` | Parquet |
+| Backtest configuration | Caller-supplied `BacktestConfig` | Python dataclass |
+| Signal parameters | Caller-supplied or `ResearchValidationConfig` | Python dataclass |
+| Experiment storage directory | Caller-supplied `Path` | Local filesystem |
+
+#### Outputs
+
+| Output | Location | Format |
+|--------|----------|--------|
+| `ResearchValidationResult` | In-memory | Python dataclass |
+| `ReplayCertificate` | In-memory or caller-persisted JSON | Python dataclass / JSON |
+| Experiment JSON artifact | `experiments/<date>/experiment_<uuid>.json` | JSON |
+
+#### Allowed dependencies (enforced by CI)
+
+The Research Layer may import from the following packages only:
+
+```
+aqcs.backtesting   — deterministic backtest engine and result models
+aqcs.data          — OHLCV ingestion, validation, and manifests
+aqcs.experiments   — experiment record persistence
+aqcs.features      — feature computation (returns, trend, volatility)
+aqcs.monitoring    — data-quality checks as pre-research gates
+aqcs.signals       — deterministic signal generation
+aqcs.utils         — config, logging, events, phase guard
+```
+
+#### Forbidden dependencies
+
+The Research Layer must NOT import from:
+
+```
+aqcs.execution     — order submission; no execution pathway exists in research
+aqcs.risk          — live risk management; not applicable offline
+aqcs.portfolio     — live portfolio state; not applicable offline
+aqcs.llm_oversight — LLM decision layer; research is deterministic rule-based only
+```
+
+This restriction is enforced by `tests/architecture/test_dependency_boundaries.py`. Any forbidden import fails CI immediately.
+
+#### What this component must NOT do
+
+- Submit orders to any exchange (live or paper).
+- Read from or write to private exchange API credentials.
+- Introduce look-ahead bias in any pipeline stage.
+- Modify validated OHLCV data in `data/raw/`.
+- Produce research results that depend on wall-clock time (all outputs must be deterministic from the input data).
+- Allow LLM-generated signals or weights to enter the pipeline.
+- Bypass the Phase Guard.
+
+#### Governance note
+
+`aqcs.research` was added to the enforced architecture DAG in **TASK-RESEARCH-DAG-GOVERNANCE-001 (2026-05-18)**. Before that task, research files were exempt from the boundary check due to a gap in the ALLOWED map. The gap is now closed: all `src/aqcs/research/` files are checked on every CI run.
+
+#### Technical risks
+
+| Risk | Likelihood | Mitigation |
+|------|-----------|------------|
+| Look-ahead introduced via feature warm-up misconfiguration | Medium | `tests/research/test_no_lookahead.py` asserts no future data enters signal computation |
+| Replay certification non-determinism due to wall-clock dependence | Low | `ReplayCertificate.generation_timestamp_utc` is injectable via `now_utc`; all hash fields are wall-clock independent |
+| Research layer accidentally imports execution module | Low | CI boundary test fails immediately if `aqcs.execution` appears in any research import |
+| Experiment record not linked to dataset manifest | Low | `ExperimentRecord.dataset_fingerprint` captures the dataset identity; `DatasetManifest` can be generated independently for full content-hash traceability |
+
+---
+
 ## 5. Dependency rules
 
-The following import relationships are permitted. Any other import between components is a violation.
+The following import relationships are permitted. Any other import between components is a violation. The canonical source of truth for these rules is the `ALLOWED` dict in `tests/architecture/test_dependency_boundaries.py`, which is checked by CI on every push.
 
 ```
 src/aqcs/data/           → src/aqcs/utils/
@@ -617,11 +704,18 @@ src/aqcs/signals/        → src/aqcs/features/, src/aqcs/utils/
 src/aqcs/portfolio/      → src/aqcs/signals/, src/aqcs/utils/
 src/aqcs/risk/           → src/aqcs/portfolio/, src/aqcs/utils/
 src/aqcs/execution/      → src/aqcs/risk/, src/aqcs/utils/
+src/aqcs/experiments/    → src/aqcs/utils/
 src/aqcs/backtesting/    → src/aqcs/data/, src/aqcs/features/, src/aqcs/signals/,
-                      src/aqcs/portfolio/, src/aqcs/risk/, src/aqcs/execution/, src/aqcs/utils/
+                           src/aqcs/portfolio/, src/aqcs/risk/, src/aqcs/execution/,
+                           src/aqcs/experiments/, src/aqcs/utils/
 src/aqcs/monitoring/     → src/aqcs/data/, src/aqcs/utils/
 src/aqcs/llm_oversight/  → src/aqcs/utils/ only
+src/aqcs/research/       → src/aqcs/backtesting/, src/aqcs/data/, src/aqcs/experiments/,
+                           src/aqcs/features/, src/aqcs/monitoring/, src/aqcs/signals/,
+                           src/aqcs/utils/
 ```
+
+**`aqcs.research` is an offline research orchestration layer.** It sits above the full quant-core stack and may read from any of the permitted packages. It must never import from `aqcs.execution`, `aqcs.risk`, `aqcs.portfolio`, or `aqcs.llm_oversight`. (Governance decision: TASK-RESEARCH-DAG-GOVERNANCE-001, 2026-05-18.)
 
 **No circular imports.** If a circular dependency appears, the design is wrong. Refactor before merging.
 
@@ -691,5 +785,6 @@ The boundary is not enforced solely by convention. It is enforced by:
 | Version | Date | Summary |
 |---------|------|---------|
 | 1.0.0 | 2026-05-16 | Initial architecture document. Phase 1 (Foundation) and Phase 2 (Research) scope. Nine components specified. LLM boundary formalised. |
+| 1.0.1 | 2026-05-18 | Added §4.10 Research Layer specification. Updated §5 dependency rules to include `aqcs.research` and `aqcs.experiments`. Added note that `tests/architecture/test_dependency_boundaries.py` is the canonical source of truth. Governance: TASK-RESEARCH-DAG-GOVERNANCE-001. |
 
 *Next revision (V2) will cover Phase 3: paper trading, streaming data feed, and live portfolio state management.*
