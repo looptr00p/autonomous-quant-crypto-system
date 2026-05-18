@@ -37,6 +37,7 @@ Commits:
 
 - `ac4b808` — `docs(governance): add agent workflow standard`
 - `d3457fc` — `test(governance): validate workflow governance docs`
+- `157f15d` — `docs(handoff): record agent workflow standard delivery`
 
 ## Files changed
 
@@ -78,7 +79,8 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/governance/test_agent_workflow_d
 - [x] mypy: 0 errors
 - [x] architecture tests: not directly changed; full run reached architecture tests successfully
 - [x] committed to task branch
-- [ ] pushed to origin and PR opened
+- [x] pushed to origin
+- [ ] PR opened: blocked because GitHub connector returned 403 and local `gh` is not authenticated
 
 ## Decisions made
 
@@ -96,6 +98,8 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/governance/test_agent_workflow_d
   Mitigation: They were not edited or staged as part of this governance task.
 - Risk: Full pytest baseline failed before implementation in monitoring CLI tests.  
   Mitigation: Treat those failures as pre-existing and validate the new governance test independently.
+- Risk: PR creation could not be completed by this agent.  
+  Mitigation: Branch was pushed to origin; open the PR manually from the pushed branch URL.
 
 ## Deferred work
 
