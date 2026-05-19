@@ -3,7 +3,7 @@
 ## AI Handoff
 
 ### Handoff ID
-`HND-025`
+`HND-028`
 
 ### Task ID
 `TASK-RESEARCH-REGRESSION-GUARD-001`
@@ -43,7 +43,7 @@ src/aqcs/utils/canonicalization.py           — canonical_hash, normalize_nan, 
 scripts/research/run_regression_guard.py     — CLI: compare two artifact dirs, exit 0/1/2
 scripts/research/validate_regression_report.py — CLI: validate regression report hash, exit 0/1/2
 tests/research/test_regression_guard.py      — 38 deterministic, local, wall-clock-free tests
-docs/bitacora/2026-05-19-HND-025-research-regression-guard-001.md — this handoff
+docs/bitacora/2026-05-19-HND-028-research-regression-guard-001.md — this handoff
 ```
 
 ### Tests run
