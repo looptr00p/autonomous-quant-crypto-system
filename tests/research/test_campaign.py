@@ -60,6 +60,7 @@ from aqcs.research.campaign import (
     save_campaign,
     validate_campaign,
 )
+from aqcs.utils.canonicalization import legacy_bytes
 
 # ── Shared constants ──────────────────────────────────────────────────────────
 
@@ -144,12 +145,10 @@ def _wf_dict(n_windows: int = 4, report_hash_suffix: str = "wf") -> dict:
         "windows": [],
         "results": [],
     }
-    # Compute a real report_hash so self-verification can be skipped
-    # (We omit report_hash to avoid computing it in tests)
+    # Compute report_hash using legacy (default-separator) format — matching
+    # what walkforward.py._compute_report_hash actually produces.
     d_no_hash = {k: v for k, v in d.items() if k != "report_hash"}
-    d["report_hash"] = hashlib.sha256(
-        json.dumps(d_no_hash, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    d["report_hash"] = hashlib.sha256(legacy_bytes(d_no_hash)).hexdigest()
     return d
 
 
@@ -200,10 +199,10 @@ def _baseline_dict(
         "excess_return": total_return - 0.08,
         "metrics_hash": "e" * 64,
     }
+    # Compute report_hash using legacy (default-separator) format — matching
+    # what baseline_report.py._compute_report_hash actually produces.
     d_no_hash = {k: v for k, v in d.items() if k != "report_hash"}
-    d["report_hash"] = hashlib.sha256(
-        json.dumps(d_no_hash, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    d["report_hash"] = hashlib.sha256(legacy_bytes(d_no_hash)).hexdigest()
     return d
 
 

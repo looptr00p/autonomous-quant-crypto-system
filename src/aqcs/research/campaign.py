@@ -46,6 +46,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from aqcs.utils.canonicalization import canonical_hash, legacy_hash
+
 CAMPAIGN_VERSION: str = "1"
 
 # Fixed UUID5 namespace — never changes.
@@ -533,12 +535,19 @@ def _check_required(
 
 
 def _verify_self_hash(d: dict[str, Any], hash_field: str) -> bool:
-    """Re-derive the hash and compare to the stored value."""
-    stored = str(d.get(hash_field, ""))
-    d_no_hash = {k: v for k, v in d.items() if k != hash_field}
-    recomputed = hashlib.sha256(
-        json.dumps(d_no_hash, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    """Re-derive the hash and compare to the stored value.
+
+    External artifact types (baseline reports, walk-forward reports) compute
+    their self-certifying hash using the legacy default-separator format
+    (``json.dumps(..., sort_keys=True)``).  This function matches that format
+    via ``legacy_hash`` so that verification is correct for artifacts produced
+    by ``baseline_report.py`` and ``walkforward.py``.
+
+    See ``aqcs.utils.canonicalization`` for the full backward-compatibility note.
+    """
+    stored: str = str(d.get(hash_field, ""))
+    d_no_hash: dict[str, Any] = {k: v for k, v in d.items() if k != hash_field}
+    recomputed: str = legacy_hash(d_no_hash)
     return stored == recomputed
 
 
@@ -653,7 +662,10 @@ def _aggregate_walkforward(walkforwards: list[dict[str, Any]]) -> dict[str, Any]
 
 
 def _compute_campaign_hash(content_dict: dict[str, Any]) -> str:
-    """SHA-256 of canonical JSON with compact separators and sorted keys."""
-    return hashlib.sha256(
-        json.dumps(content_dict, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    """SHA-256 of the canonical JSON representation of the campaign content.
+
+    Uses the canonical compact-separator format from
+    ``aqcs.utils.canonicalization.canonical_hash``.
+    """
+    result: str = canonical_hash(content_dict)
+    return result
