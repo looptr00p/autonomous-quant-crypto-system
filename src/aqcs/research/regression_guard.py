@@ -82,6 +82,10 @@ FINDING_DETERMINISM_FAILURE: str = "determinism_failure"
 FINDING_GOVERNANCE_VIOLATION: str = "governance_violation"
 
 # ── Severity levels ───────────────────────────────────────────────────────────
+# Comparison-severity classification: three levels for artifact-comparison findings.
+# Uses lowercase string values.  This is a distinct system from sensitivity_audit's
+# four-level instability-magnitude system ("CRITICAL"/"HIGH"/"MEDIUM"/"LOW").
+# See docs/governance/governance_constants.md for the distinction.
 
 SEVERITY_CRITICAL: str = "critical"
 SEVERITY_WARNING: str = "warning"
