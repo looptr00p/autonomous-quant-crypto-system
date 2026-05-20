@@ -39,6 +39,15 @@ import numpy as np
 import pandas as pd
 
 from aqcs.backtesting.models import BacktestConfig
+from aqcs.research.governance_thresholds import (
+    DRAWDOWN_CEIL as _GT_DRAWDOWN_CEIL,
+)
+from aqcs.research.governance_thresholds import (
+    RETURN_FLOOR as _GT_RETURN_FLOOR,
+)
+from aqcs.research.governance_thresholds import (
+    SHARPE_FLOOR as _GT_SHARPE_FLOOR,
+)
 from aqcs.research.walkforward import (
     _DRAWDOWN_CEIL,
     _RETURN_FLOOR,
@@ -474,6 +483,38 @@ class TestThresholdConstants:
         assert (
             _SHARPE_FLOOR == 0.0
         ), f"_SHARPE_FLOOR must be 0.0. Any change requires ADR. Got: {_SHARPE_FLOOR}"
+
+
+# ── Threshold alignment with governance_thresholds ───────────────────────────
+
+
+class TestThresholdAlignment:
+    """Regression tests that verify walkforward.py thresholds equal
+    the canonical values in governance_thresholds.py.
+
+    These tests protect against future drift: if governance_thresholds.py is
+    updated without updating walkforward.py (or vice versa), these fail loudly.
+    """
+
+    def test_return_floor_aligned_with_canonical(self) -> None:
+        assert _RETURN_FLOOR == _GT_RETURN_FLOOR, (
+            f"walkforward._RETURN_FLOOR ({_RETURN_FLOOR}) diverged from "
+            f"governance_thresholds.RETURN_FLOOR ({_GT_RETURN_FLOOR}). "
+            "Change the canonical value in governance_thresholds.py only, "
+            "via ADR and human approval."
+        )
+
+    def test_drawdown_ceil_aligned_with_canonical(self) -> None:
+        assert _DRAWDOWN_CEIL == _GT_DRAWDOWN_CEIL, (
+            f"walkforward._DRAWDOWN_CEIL ({_DRAWDOWN_CEIL}) diverged from "
+            f"governance_thresholds.DRAWDOWN_CEIL ({_GT_DRAWDOWN_CEIL})."
+        )
+
+    def test_sharpe_floor_aligned_with_canonical(self) -> None:
+        assert _SHARPE_FLOOR == _GT_SHARPE_FLOOR, (
+            f"walkforward._SHARPE_FLOOR ({_SHARPE_FLOOR}) diverged from "
+            f"governance_thresholds.SHARPE_FLOOR ({_GT_SHARPE_FLOOR})."
+        )
 
 
 # ── Serialization round-trip ──────────────────────────────────────────────────
