@@ -47,6 +47,15 @@ import pandas as pd
 
 from aqcs.backtesting.engine import run_backtest
 from aqcs.backtesting.models import BacktestConfig, BacktestResult
+from aqcs.research.governance_thresholds import (
+    DRAWDOWN_CEIL as _DRAWDOWN_CEIL,
+)
+from aqcs.research.governance_thresholds import (
+    RETURN_FLOOR as _RETURN_FLOOR,
+)
+from aqcs.research.governance_thresholds import (
+    SHARPE_FLOOR as _SHARPE_FLOOR,
+)
 from aqcs.signals.combined import combined_momentum_trend_signal
 
 REPORT_VERSION: str = "2"
@@ -59,14 +68,9 @@ REPORT_VERSION: str = "2"
 # combined_momentum_trend_signal defaults: momentum_window=20, trend_long_window=50.
 _MIN_WARMUP_BARS: int = 50
 
-# ── Governance floor/ceiling thresholds ──────────────────────────────────────
-# Used for advisory governance counts in WalkForwardSummary.
-# These values must match governance_thresholds.RETURN_FLOOR / DRAWDOWN_CEIL /
-# SHARPE_FLOOR once TASK-GOVERNANCE-CONSOLIDATION-001 merges to master.
-# Any change requires an ADR and explicit human approval.
-_RETURN_FLOOR: float = -0.10  # total_return below this → governance advisory
-_DRAWDOWN_CEIL: float = 0.30  # max_drawdown above this → governance advisory
-_SHARPE_FLOOR: float = 0.0  # sharpe_ratio at/below this → governance advisory
+# _RETURN_FLOOR, _DRAWDOWN_CEIL, _SHARPE_FLOOR are imported from
+# governance_thresholds — single source of truth for Phase-1B acceptability
+# bounds.  Any change requires an ADR and explicit human approval.
 
 # Minimum |mean| below which coefficient of variation is treated as undefined.
 _CV_MEAN_EPS: float = 1e-10
