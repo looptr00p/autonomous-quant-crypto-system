@@ -50,6 +50,14 @@ from aqcs.research.campaign import (
     load_campaign,
     validate_campaign,
 )
+from aqcs.research.governance_thresholds import (
+    DRAWDOWN_CEIL,
+    RETURN_FLOOR,
+    SCORE_WEIGHT_DRAWDOWN,
+    SCORE_WEIGHT_RETURN,
+    SCORE_WEIGHT_SHARPE,
+    SHARPE_FLOOR,
+)
 from aqcs.utils.canonicalization import (
     canonical_hash,
     normalize_nan,
@@ -62,21 +70,21 @@ BENCHMARK_VERSION: str = "1"
 # Fixed UUID5 namespace for deterministic benchmark_id derivation.
 _BENCHMARK_NS: uuid.UUID = uuid.UUID("b1c2d3e4-f5a6-7890-bcde-f01234567890")
 
-# ── Scoring weights — explicit constants, fully documented ────────────────────
+# ── Scoring weights — sourced from governance_thresholds (single source of truth)
 # These weights define the AQCS baseline governance scoring function.
 # They are ADVISORY ONLY — never used for automated strategy selection.
 # Any change requires an ADR and human approval.
 
-SCORE_WEIGHT_TOTAL_RETURN: float = 0.30
-SCORE_WEIGHT_MAX_DRAWDOWN: float = 0.25  # penalises large drawdowns (negative contribution)
-SCORE_WEIGHT_SHARPE: float = 0.25
+SCORE_WEIGHT_TOTAL_RETURN: float = SCORE_WEIGHT_RETURN
+SCORE_WEIGHT_MAX_DRAWDOWN: float = SCORE_WEIGHT_DRAWDOWN  # penalises large drawdowns
 SCORE_WEIGHT_WF_COVERAGE: float = 0.10  # more walk-forward windows → broader temporal evidence
 SCORE_WEIGHT_ISSUE_PENALTY: float = 0.10  # deduct for campaign issues
+# SCORE_WEIGHT_SHARPE is imported directly from governance_thresholds
 
-# Regression thresholds — explicit constants, fully documented.
-REGRESSION_RETURN_FLOOR: float = -0.10  # total_return below this → regression flag
-REGRESSION_DRAWDOWN_CEIL: float = 0.30  # max_drawdown above this → regression flag
-REGRESSION_SHARPE_FLOOR: float = 0.0  # sharpe_ratio at or below this → regression flag
+# Regression thresholds — sourced from governance_thresholds (single source of truth).
+REGRESSION_RETURN_FLOOR: float = RETURN_FLOOR  # total_return below this → regression flag
+REGRESSION_DRAWDOWN_CEIL: float = DRAWDOWN_CEIL  # max_drawdown above this → regression flag
+REGRESSION_SHARPE_FLOOR: float = SHARPE_FLOOR  # sharpe_ratio at or below this → regression flag
 REGRESSION_ISSUE_CEIL: int = 5  # more than this many issues → regression flag
 
 # Normalisation caps for score components.
