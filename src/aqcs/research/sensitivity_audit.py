@@ -64,6 +64,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from aqcs.research.governance_thresholds import (
+    DRAWDOWN_CEIL,
+    RETURN_FLOOR,
+    SCORE_WEIGHT_DRAWDOWN,
+    SCORE_WEIGHT_RETURN,
+    SCORE_WEIGHT_SHARPE,
+    SHARPE_FLOOR,
+)
 from aqcs.utils.canonicalization import canonical_hash, normalize_nan, sha256_hex
 
 # ── Version ───────────────────────────────────────────────────────────────────
@@ -74,6 +82,10 @@ AUDIT_VERSION: str = "1"
 _AUDIT_NS: uuid.UUID = uuid.UUID("d4e5f6a7-b8c9-0123-4567-89abcdef0123")
 
 # ── Severity levels ───────────────────────────────────────────────────────────
+# Instability-magnitude classification: four levels of severity for perturbation
+# results.  This is a distinct system from regression_guard's three-level
+# comparison-severity system ("critical"/"warning"/"info").  See
+# docs/governance/governance_constants.md for the distinction.
 
 SEVERITY_LOW: str = "LOW"
 SEVERITY_MEDIUM: str = "MEDIUM"
@@ -89,21 +101,21 @@ INSTABILITY_MEDIUM_THRESHOLD: float = 0.20  # 20% relative change → MEDIUM
 INSTABILITY_HIGH_THRESHOLD: float = 0.50  # 50% relative change → HIGH
 # Above HIGH_THRESHOLD → CRITICAL (by magnitude alone)
 
-# ── Governance thresholds — aligned with benchmark_suite.py constants ─────────
+# ── Governance thresholds — sourced from governance_thresholds (single source of truth)
 # Crossing these in the perturbed value produces a CRITICAL severity finding.
 # Any change requires an ADR and human approval.
 
-GOVERNANCE_RETURN_FLOOR: float = -0.10  # total_return / mean_total_return floor
-GOVERNANCE_DRAWDOWN_CEIL: float = 0.30  # max_drawdown / mean_max_drawdown ceiling
-GOVERNANCE_SHARPE_FLOOR: float = 0.0  # sharpe_ratio / mean_sharpe_ratio floor
+GOVERNANCE_RETURN_FLOOR: float = RETURN_FLOOR  # total_return / mean_total_return floor
+GOVERNANCE_DRAWDOWN_CEIL: float = DRAWDOWN_CEIL  # max_drawdown / mean_max_drawdown ceiling
+GOVERNANCE_SHARPE_FLOOR: float = SHARPE_FLOOR  # sharpe_ratio / mean_sharpe_ratio floor
 
 # ── Benchmark score weight approximations ─────────────────────────────────────
-# Used for benchmark_delta computation.  These mirror benchmark_suite.py constants
-# and MUST stay in sync if those change (document the ADR that changes them).
+# Used for benchmark_delta computation.  Sourced from governance_thresholds
+# (single source of truth) — no longer need to manually stay in sync.
 
-_BENCH_WEIGHT_RETURN: float = 0.30
-_BENCH_WEIGHT_DRAWDOWN: float = 0.25
-_BENCH_WEIGHT_SHARPE: float = 0.25
+_BENCH_WEIGHT_RETURN: float = SCORE_WEIGHT_RETURN
+_BENCH_WEIGHT_DRAWDOWN: float = SCORE_WEIGHT_DRAWDOWN
+_BENCH_WEIGHT_SHARPE: float = SCORE_WEIGHT_SHARPE
 
 # ── Known metric field path categories ───────────────────────────────────────
 # Used to determine which governance threshold applies and benchmark weight.

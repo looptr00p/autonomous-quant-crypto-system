@@ -47,13 +47,33 @@ import pandas as pd
 
 from aqcs.backtesting.engine import run_backtest
 from aqcs.backtesting.models import BacktestConfig, BacktestResult
+from aqcs.research.governance_thresholds import (
+    DRAWDOWN_CEIL as _DRAWDOWN_CEIL,
+)
+from aqcs.research.governance_thresholds import (
+    RETURN_FLOOR as _RETURN_FLOOR,
+)
+from aqcs.research.governance_thresholds import (
+    SHARPE_FLOOR as _SHARPE_FLOOR,
+)
 from aqcs.signals.combined import combined_momentum_trend_signal
 
-REPORT_VERSION: str = "1"
+REPORT_VERSION: str = "2"
+# Version history:
+#   "1" — initial release (mean/std/min/max for total_return only)
+#   "2" — adds variance/dispersion for sharpe and drawdown, CV, range,
+#          and governance advisory counts (TASK-WALKFORWARD-VARIANCE-001)
 
 # Minimum training bars needed for the default signal to be meaningful.
 # combined_momentum_trend_signal defaults: momentum_window=20, trend_long_window=50.
 _MIN_WARMUP_BARS: int = 50
+
+# _RETURN_FLOOR, _DRAWDOWN_CEIL, _SHARPE_FLOOR are imported from
+# governance_thresholds — single source of truth for Phase-1B acceptability
+# bounds.  Any change requires an ADR and explicit human approval.
+
+# Minimum |mean| below which coefficient of variation is treated as undefined.
+_CV_MEAN_EPS: float = 1e-10
 
 
 # ── Data models ───────────────────────────────────────────────────────────────
@@ -99,20 +119,62 @@ class WalkForwardResult:
 
 @dataclass(frozen=True)
 class WalkForwardSummary:
-    """Aggregate statistics across all walk-forward windows."""
+    """Aggregate statistics across all walk-forward windows.
 
+    Version 2 additions
+    -------------------
+    Dispersion metrics for total_return (range, cv) and full dispersion for
+    sharpe_ratio and max_drawdown (std, min, max).  Governance advisory counts
+    for folds that breach Phase-1B acceptability thresholds.
+
+    All float fields are NaN when there are fewer than 2 evaluated windows
+    (or fewer than 2 non-NaN values for that metric).  Governance advisory
+    counts are integers and default to 0 when no evaluated windows exist.
+
+    Advisory-only
+    -------------
+    Governance advisory counts and instability metrics are for human review
+    only.  They do not auto-approve or auto-reject strategies, do not rank
+    deployment candidates, and do not imply trading readiness.
+    """
+
+    # ── Window counts ─────────────────────────────────────────────────────────
     n_windows_total: int
     n_windows_evaluated: int
     n_windows_failed: int
     n_windows_profitable: int
+
+    # ── Total return dispersion ───────────────────────────────────────────────
     mean_total_return: float
     std_total_return: float
     min_total_return: float
     max_total_return: float
+    range_total_return: float  # max - min; NaN if < 2 evaluated windows
+    cv_total_return: float  # std / |mean|; NaN if |mean| < eps or < 2 windows
+
+    # ── Sharpe ratio dispersion ───────────────────────────────────────────────
     mean_sharpe_ratio: float
+    std_sharpe_ratio: float  # NaN if < 2 evaluated windows
+    min_sharpe_ratio: float  # NaN if no evaluated windows
+    max_sharpe_ratio: float  # NaN if no evaluated windows
+
+    # ── Max drawdown dispersion ───────────────────────────────────────────────
     mean_max_drawdown: float
+    std_max_drawdown: float  # NaN if < 2 evaluated windows
+    min_max_drawdown: float  # NaN if no evaluated windows
+    max_max_drawdown: float  # NaN if no evaluated windows
+
+    # ── Trade count ───────────────────────────────────────────────────────────
     mean_trade_count: float
+
+    # ── Overlap flag ─────────────────────────────────────────────────────────
     test_overlap: bool
+
+    # ── Governance advisory counts (Phase-1B thresholds) ─────────────────────
+    # Advisory only — never used for automated strategy selection.
+    n_windows_below_return_floor: int  # folds with return < _RETURN_FLOOR (-10%)
+    n_windows_above_drawdown_ceil: int  # folds with drawdown > _DRAWDOWN_CEIL (30%)
+    n_windows_below_sharpe_floor: int  # folds with sharpe <= _SHARPE_FLOOR (0.0)
 
 
 @dataclass(frozen=True)
@@ -426,10 +488,21 @@ def report_to_dict(report: WalkForwardReport) -> dict[str, Any]:
             "std_total_return": _f(report.summary.std_total_return),
             "min_total_return": _f(report.summary.min_total_return),
             "max_total_return": _f(report.summary.max_total_return),
+            "range_total_return": _f(report.summary.range_total_return),
+            "cv_total_return": _f(report.summary.cv_total_return),
             "mean_sharpe_ratio": _f(report.summary.mean_sharpe_ratio),
+            "std_sharpe_ratio": _f(report.summary.std_sharpe_ratio),
+            "min_sharpe_ratio": _f(report.summary.min_sharpe_ratio),
+            "max_sharpe_ratio": _f(report.summary.max_sharpe_ratio),
             "mean_max_drawdown": _f(report.summary.mean_max_drawdown),
+            "std_max_drawdown": _f(report.summary.std_max_drawdown),
+            "min_max_drawdown": _f(report.summary.min_max_drawdown),
+            "max_max_drawdown": _f(report.summary.max_max_drawdown),
             "mean_trade_count": _f(report.summary.mean_trade_count),
             "test_overlap": report.summary.test_overlap,
+            "n_windows_below_return_floor": report.summary.n_windows_below_return_floor,
+            "n_windows_above_drawdown_ceil": report.summary.n_windows_above_drawdown_ceil,
+            "n_windows_below_sharpe_floor": report.summary.n_windows_below_sharpe_floor,
         },
         "windows": [
             {
@@ -473,6 +546,7 @@ def report_from_dict(d: dict[str, Any]) -> WalkForwardReport:
 
     s = d["summary"]
     summary = WalkForwardSummary(
+        # Required fields — present in v1 and v2
         n_windows_total=int(s["n_windows_total"]),
         n_windows_evaluated=int(s["n_windows_evaluated"]),
         n_windows_failed=int(s["n_windows_failed"]),
@@ -485,6 +559,18 @@ def report_from_dict(d: dict[str, Any]) -> WalkForwardReport:
         mean_max_drawdown=_fn(s["mean_max_drawdown"]),
         mean_trade_count=_fn(s["mean_trade_count"]),
         test_overlap=bool(s["test_overlap"]),
+        # v2 fields — NaN/0 when loading a v1 report
+        range_total_return=_fn(s.get("range_total_return")),
+        cv_total_return=_fn(s.get("cv_total_return")),
+        std_sharpe_ratio=_fn(s.get("std_sharpe_ratio")),
+        min_sharpe_ratio=_fn(s.get("min_sharpe_ratio")),
+        max_sharpe_ratio=_fn(s.get("max_sharpe_ratio")),
+        std_max_drawdown=_fn(s.get("std_max_drawdown")),
+        min_max_drawdown=_fn(s.get("min_max_drawdown")),
+        max_max_drawdown=_fn(s.get("max_max_drawdown")),
+        n_windows_below_return_floor=int(s.get("n_windows_below_return_floor", 0)),
+        n_windows_above_drawdown_ceil=int(s.get("n_windows_above_drawdown_ceil", 0)),
+        n_windows_below_sharpe_floor=int(s.get("n_windows_below_sharpe_floor", 0)),
     )
 
     windows = tuple(
@@ -676,6 +762,23 @@ def _compute_summary(
         var = sum((v - mean) ** 2 for v in lst) / (len(lst) - 1)
         return math.sqrt(var)
 
+    def _range(lst: list[float]) -> float:
+        return max(lst) - min(lst) if len(lst) >= 2 else nan
+
+    def _cv(lst: list[float]) -> float:
+        if len(lst) < 2:
+            return nan
+        s = _std(lst)
+        m = _mean(lst)
+        if math.isnan(s) or abs(m) < _CV_MEAN_EPS:
+            return nan
+        return s / abs(m)
+
+    # Governance advisory counts — advisory only, never used for auto-selection
+    n_below_return_floor = sum(1 for v in returns if v < _RETURN_FLOOR)
+    n_above_drawdown_ceil = sum(1 for v in drawdowns if v > _DRAWDOWN_CEIL)
+    n_below_sharpe_floor = sum(1 for v in sharpes if v <= _SHARPE_FLOOR)
+
     return WalkForwardSummary(
         n_windows_total=n_total,
         n_windows_evaluated=n_evaluated,
@@ -685,10 +788,21 @@ def _compute_summary(
         std_total_return=_std(returns),
         min_total_return=min(returns) if returns else nan,
         max_total_return=max(returns) if returns else nan,
+        range_total_return=_range(returns),
+        cv_total_return=_cv(returns),
         mean_sharpe_ratio=_mean(sharpes),
+        std_sharpe_ratio=_std(sharpes),
+        min_sharpe_ratio=min(sharpes) if sharpes else nan,
+        max_sharpe_ratio=max(sharpes) if sharpes else nan,
         mean_max_drawdown=_mean(drawdowns),
+        std_max_drawdown=_std(drawdowns),
+        min_max_drawdown=min(drawdowns) if drawdowns else nan,
+        max_max_drawdown=max(drawdowns) if drawdowns else nan,
         mean_trade_count=_mean(trade_counts),
         test_overlap=step_bars < test_bars,
+        n_windows_below_return_floor=n_below_return_floor,
+        n_windows_above_drawdown_ceil=n_above_drawdown_ceil,
+        n_windows_below_sharpe_floor=n_below_sharpe_floor,
     )
 
 
